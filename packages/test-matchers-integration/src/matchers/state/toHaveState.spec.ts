@@ -6,7 +6,7 @@ import { type Address, type Hex, parseEther, toHex } from 'viem'
 import { assert, beforeAll, describe, expect, it } from 'vitest'
 
 describe('toHaveState', () => {
-	const node = createTevmNode()
+	const node = createTevmNode() as any
 	const contract = {
 		address: '0x' as Address,
 		storage: {

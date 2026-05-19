@@ -6,7 +6,7 @@ import { type Address, parseEther } from 'viem'
 import { assert, beforeAll, describe, expect, it } from 'vitest'
 
 describe('toBeInitializedAccount', () => {
-	const client = createTevmNode()
+	const client = createTevmNode() as any
 	let accountWithCode: Address
 	const uninitializedAccount = `0x${'1'.repeat(40)}` as Address
 	const initializedAccount = `0x${'2'.repeat(40)}` as Address

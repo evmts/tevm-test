@@ -1,7 +1,7 @@
 import { contractHandler, dealHandler, deployHandler, ethGetTransactionReceiptHandler } from '@tevm/actions'
 import { ERC20, ErrorContract } from '@tevm/contract'
 import { createMemoryClient } from '@tevm/memory-client'
-import { createTevmNode, type TevmNode } from '@tevm/node'
+import { createTevmNode } from '@tevm/node'
 import { PREFUNDED_ACCOUNTS } from '@tevm/utils'
 import type { Address } from 'viem'
 import { parseEther } from 'viem'
@@ -14,7 +14,7 @@ const amount = parseEther('100') // 100 tokens
 describe('toChangeTokenBalance', () => {
 	let tokenAddress: Address
 	let tokenContract: ReturnType<typeof ERC20.withAddress>
-	let node: TevmNode
+	let node: any
 
 	beforeEach(async () => {
 		// Create a fresh node for each test to avoid mining conflicts

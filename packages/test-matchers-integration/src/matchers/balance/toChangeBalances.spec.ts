@@ -7,7 +7,7 @@ import {
 } from '@tevm/actions'
 import { ErrorContract, SimpleContract } from '@tevm/contract'
 import { createMemoryClient } from '@tevm/memory-client'
-import { createTevmNode, type TevmNode } from '@tevm/node'
+import { createTevmNode } from '@tevm/node'
 import { PREFUNDED_ACCOUNTS } from '@tevm/utils'
 import type { Address } from 'viem'
 import { parseEther } from 'viem'
@@ -20,7 +20,7 @@ const amount = parseEther('1')
 
 describe('toChangeBalances', () => {
 	let gasCost: bigint
-	let node: TevmNode
+	let node: any
 
 	beforeEach(async () => {
 		// Create a fresh node for each test to avoid mining conflicts
