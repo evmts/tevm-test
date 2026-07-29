@@ -41,13 +41,20 @@ describe('@tevm/test-utils fixtures', () => {
 		)
 	})
 
-	it('uses the exported Optimism transport against a pinned real block', async () => {
-		const block = await transports.optimism.request({
-			method: 'eth_getBlockByNumber',
-			params: ['0x7bfa480', false],
-		})
-		expect((block as { hash: string }).hash).toBe('0xaf131f54209291613f0b74e61903405ea84bf30368ea5c6cf787992351ad843d')
-	}, 30_000)
+	// This integration check needs an explicit RPC URL and cannot run in standalone CI without one.
+	it.skipIf(!process.env['TEVM_RPC_URLS_OPTIMISM'])(
+		'uses the exported Optimism transport against a pinned real block',
+		async () => {
+			const block = await transports.optimism.request({
+				method: 'eth_getBlockByNumber',
+				params: ['0x7bfa480', false],
+			})
+			expect((block as { hash: string }).hash).toBe(
+				'0xaf131f54209291613f0b74e61903405ea84bf30368ea5c6cf787992351ad843d',
+			)
+		},
+		30_000,
+	)
 
 	it('builds an Alchemy URL with an explicit key', () => {
 		expect(getAlchemyUrl('optimism', 'test-key')).toBe('https://opt-mainnet.g.alchemy.com/v2/test-key')
