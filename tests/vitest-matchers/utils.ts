@@ -1,7 +1,8 @@
-import { expect } from 'vitest'
 import { getAddress, hexToBytes, isAddress, isAddressEqual, isHex, trim } from 'viem'
+import { expect } from 'vitest'
 
-const equalsBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, index) => byte === b[index])
+const equalsBytes = (a: Uint8Array, b: Uint8Array) =>
+	a.length === b.length && a.every((byte, index) => byte === b[index])
 
 expect.extend({
 	toBeAddress(received, opts) {

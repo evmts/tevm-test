@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 import { createTestSnapshotClient } from '../createTestSnapshotClient.js'
+import type { TestSnapshotClient } from '../types.js'
 import { BLOCK_NUMBER, chain } from './constants.js'
 import { createMockForkTransport } from './mockTransport.js'
 
@@ -32,12 +33,12 @@ const { createMockHttpServer } = vi.hoisted(() => {
 	}
 })
 
-vi.mock('@tevm/server', () => ({
+vi.mock('tevm/server', () => ({
 	createServer: createMockHttpServer,
 }))
 
 // Global client instance
-export const client = createTestSnapshotClient({
+export const client: TestSnapshotClient = createTestSnapshotClient({
 	fork: {
 		transport: createMockForkTransport(),
 		blockTag: BigInt(BLOCK_NUMBER) + 1n,

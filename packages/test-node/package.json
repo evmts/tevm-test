@@ -1,32 +1,24 @@
 {
 	"name": "@tevm/test-node",
 	"version": "1.0.0-rc.151",
-	"private": false,
-	"description": "Vite test utils for snapshotting JSON-RPC requests using a Tevm server.",
+	"description": "Snapshot-aware TEVM test node and JSON-RPC transport.",
 	"keywords": [
-		"solidity",
-		"forge",
-		"foundry",
-		"sol",
-		"typescript",
-		"web3",
-		"blockchain",
-		"testing",
-		"vite",
-		"vitest",
-		"json",
-		"rpc",
 		"tevm",
-		"server",
-		"node",
-		"http",
-		"snapshot",
-		"optimization"
+		"ethereum",
+		"evm",
+		"testing",
+		"vitest",
+		"json-rpc",
+		"snapshot"
 	],
+	"homepage": "https://test.tevm.sh",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/evmts/tevm-monorepo.git",
-		"directory": "extensions/test-node"
+		"url": "git+https://github.com/evmts/tevm-test.git",
+		"directory": "packages/test-node"
+	},
+	"bugs": {
+		"url": "https://github.com/evmts/tevm-test/issues"
 	},
 	"license": "MIT",
 	"contributors": [
@@ -54,46 +46,44 @@
 	"files": [
 		"dist",
 		"src",
-		"!src/**/*.spec.ts"
+		"!src/**/*.spec.ts",
+		"!src/**/*.snap.json",
+		"!src/test/**"
 	],
+	"engines": {
+		"node": ">=24"
+	},
 	"scripts": {
-		"all": "pnpm i  && bun run build && bun lint && bun format && bun test:run && bun generate:docs && bun run lint:deps && bun run lint:package",
-		"build": "nx run-many --targets=build:dist,build:types --projects=@tevm/test-node",
+		"build": "pnpm run clean && pnpm run build:dist && pnpm run build:types",
 		"build:dist": "tsup",
-		"build:types": "tsup --dts-only && tsc --emitDeclarationOnly --declaration --skipLibCheck",
-		"clean": "rm -rf node_modules && rm -rf artifacts && rm -rf dist && rm -rf cache",
+		"build:types": "tsup --dts-only",
+		"clean": "rm -rf dist types",
 		"format": "biome format . --write",
 		"format:check": "biome format .",
-		"generate:docs": "typedoc",
-		"lint": "biome check . --write --unsafe",
-		"lint:check": "biome check . --verbose",
-		"lint:deps": "bunx depcheck",
-		"lint:package": "bunx publint --strict && attw --pack",
-		"package:up": "pnpm up --latest",
-		"test": "vitest --watch",
-		"test:cleanup": "rm -rf __snapshots__",
-		"test:coverage": "vitest --coverage --run && bun test src/internal/resolve*TestSnapshotPath.spec.ts",
-		"test:run": "vitest run && bun test src/internal/resolve*TestSnapshotPath.spec.ts",
+		"lint": "biome check .",
+		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@tevm/actions": "workspace:^",
-		"@tevm/memory-client": "workspace:^",
-		"@tevm/node": "workspace:^",
-		"@tevm/server": "workspace:^",
+		"@tevm/actions": "^1.0.0-rc.151",
+		"@tevm/memory-client": "^1.0.0-rc.151",
+		"@tevm/node": "^1.0.0-rc.151",
 		"viem": "^2.49.3",
 		"vitest": "^4.1.6"
 	},
 	"devDependencies": {
-		"@tevm/common": "workspace:^",
-		"@tevm/tsconfig": "workspace:^",
-		"@tevm/tsupconfig": "workspace:^",
-		"@tevm/utils": "workspace:^"
+		"@tevm/common": "^1.0.0-rc.151",
+		"@tevm/tsconfig": "^1.0.0-rc.151",
+		"@tevm/tsupconfig": "^1.0.0-rc.151",
+		"@tevm/utils": "^1.0.0-rc.151",
+		"tevm": "^1.0.0-rc.151"
 	},
 	"peerDependencies": {
+		"tevm": ">=1.0.0",
 		"viem": "^2.49.3"
 	},
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"provenance": true
 	}
 }

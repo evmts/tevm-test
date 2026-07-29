@@ -4,24 +4,23 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"test": "vitest --watch",
-		"test:coverage": "vitest --coverage --run",
-		"test:run": "vitest run",
+		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@tevm/actions": "workspace:^",
-		"@tevm/common": "workspace:^",
-		"@tevm/contract": "workspace:^",
-		"@tevm/memory-client": "workspace:^",
-		"@tevm/node": "workspace:^",
+		"@tevm/actions": "^1.0.0-rc.151",
+		"@tevm/common": "^1.0.0-rc.151",
+		"@tevm/contract": "^1.0.0-rc.151",
+		"@tevm/memory-client": "^1.0.0-rc.151",
+		"@tevm/node": "^1.0.0-rc.151",
 		"@tevm/test-matchers": "workspace:^",
-		"@tevm/utils": "workspace:^",
+		"@tevm/utils": "^1.0.0-rc.151",
 		"ox": "^0.14.22",
+		"tevm": "^1.0.0-rc.151",
 		"viem": "^2.49.3",
 		"vitest": "^4.1.6"
 	},
 	"devDependencies": {
-		"@tevm/tsconfig": "workspace:^"
+		"@tevm/tsconfig": "^1.0.0-rc.151"
 	}
 }

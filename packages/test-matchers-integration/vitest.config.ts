@@ -5,7 +5,7 @@ export default defineConfig({
 		environment: 'node',
 		globals: true,
 		include: ['src/**/*.spec.ts'],
-		setupFiles: ['@tevm/test-matchers'],
+		setupFiles: ['../test-matchers/src/index.ts'],
 		testTimeout: 120000,
 		typecheck: {
 			enabled: true,

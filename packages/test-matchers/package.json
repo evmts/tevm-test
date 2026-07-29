@@ -1,26 +1,24 @@
 {
 	"name": "@tevm/test-matchers",
 	"version": "1.0.0-rc.151",
-	"private": false,
-	"description": "Vite test matchers for Tevm or EVM-related testing in TypeScript.",
+	"description": "Vitest matchers for TEVM and EVM testing in TypeScript.",
 	"keywords": [
+		"tevm",
+		"ethereum",
+		"evm",
 		"solidity",
-		"forge",
-		"foundry",
-		"sol",
-		"typescript",
-		"web3",
-		"blockchain",
 		"testing",
-		"vite",
 		"vitest",
-		"chai",
-		"waffle"
+		"matchers"
 	],
+	"homepage": "https://test.tevm.sh",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/evmts/tevm-monorepo.git",
-		"directory": "extensions/test-matchers"
+		"url": "git+https://github.com/evmts/tevm-test.git",
+		"directory": "packages/test-matchers"
+	},
+	"bugs": {
+		"url": "https://github.com/evmts/tevm-test/issues"
 	},
 	"license": "MIT",
 	"contributors": [
@@ -48,47 +46,46 @@
 	"files": [
 		"dist",
 		"src",
-		"!src/**/*.spec.ts"
+		"!src/**/*.spec.ts",
+		"!src/**/*.type-spec.ts"
 	],
+	"engines": {
+		"node": ">=24"
+	},
 	"scripts": {
-		"all": "pnpm i  && bun run build && bun lint && bun format && bun test:run && bun generate:docs && bun run lint:deps && bun run lint:package",
-		"build": "nx run-many --targets=build:dist,build:types --projects=@tevm/test-matchers",
+		"build": "pnpm run clean && pnpm run build:dist && pnpm run build:types",
 		"build:dist": "tsup",
-		"build:types": "tsup --dts-only && tsc --emitDeclarationOnly --declaration --skipLibCheck",
-		"clean": "rm -rf node_modules && rm -rf artifacts && rm -rf dist && rm -rf cache",
+		"build:types": "tsup --dts-only",
+		"clean": "rm -rf dist types",
 		"format": "biome format . --write",
 		"format:check": "biome format .",
-		"generate:docs": "bun run typedoc",
-		"lint": "biome check . --write --unsafe",
-		"lint:check": "biome check . --verbose",
-		"lint:deps": "bunx depcheck --ignores=@tevm/common",
-		"lint:package": "bunx publint --strict && attw --pack",
-		"package:up": "pnpm up --latest",
-		"test": "vitest --watch",
-		"test:coverage": "vitest --coverage --run",
-		"test:run": "vitest run",
+		"lint": "biome check .",
+		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@tevm/actions": "workspace:^",
-		"@tevm/contract": "workspace:^",
-		"@tevm/errors": "workspace:^",
-		"@tevm/node": "workspace:^",
-		"@tevm/utils": "workspace:^",
+		"@tevm/actions": "^1.0.0-rc.151",
+		"@tevm/contract": "^1.0.0-rc.151",
+		"@tevm/errors": "^1.0.0-rc.151",
+		"@tevm/node": "^1.0.0-rc.151",
+		"@tevm/utils": "^1.0.0-rc.151",
 		"abitype": "^1.2.4",
 		"ox": "^0.14.22",
 		"viem": "^2.49.3",
 		"vitest": "^4.1.6"
 	},
 	"devDependencies": {
-		"@tevm/common": "workspace:^",
-		"@tevm/tsconfig": "workspace:^",
-		"@tevm/tsupconfig": "workspace:^"
+		"@tevm/common": "^1.0.0-rc.151",
+		"@tevm/tsconfig": "^1.0.0-rc.151",
+		"@tevm/tsupconfig": "^1.0.0-rc.151",
+		"tevm": "^1.0.0-rc.151"
 	},
 	"peerDependencies": {
+		"tevm": ">=1.0.0",
 		"viem": "^2.49.3"
 	},
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"provenance": true
 	}
 }

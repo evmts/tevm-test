@@ -5,7 +5,8 @@
 		"outDir": "types",
 		"skipLibCheck": true,
 		"types": ["bun-types"],
-		"noEmitOnError": false
+		"noEmitOnError": false,
+		"ignoreDeprecations": "6.0"
 	},
 	"include": ["src", "src/**/*.json", "vitest.setup.ts"]
 }

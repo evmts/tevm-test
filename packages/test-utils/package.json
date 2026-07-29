@@ -1,21 +1,23 @@
 {
 	"name": "@tevm/test-utils",
 	"version": "1.0.0-rc.151",
-	"private": false,
-	"description": "Testing utils and fixtures for tevm",
+	"description": "Reusable TEVM contract fixtures, transports, and test utilities.",
 	"keywords": [
+		"tevm",
+		"ethereum",
+		"evm",
 		"solidity",
-		"forge",
-		"foundry",
-		"sol",
-		"typescript",
-		"web3",
-		"blockchain"
+		"testing",
+		"fixtures"
 	],
+	"homepage": "https://test.tevm.sh",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/evmts/tevm-monorepo.git",
-		"directory": "test/test-utils"
+		"url": "git+https://github.com/evmts/tevm-test.git",
+		"directory": "packages/test-utils"
+	},
+	"bugs": {
+		"url": "https://github.com/evmts/tevm-test/issues"
 	},
 	"license": "MIT",
 	"contributors": [
@@ -45,43 +47,44 @@
 		"!src/**/*.spec.ts",
 		"types"
 	],
+	"engines": {
+		"node": ">=24"
+	},
 	"scripts": {
-		"all": "bun run build && bun run bench:run && bun run lint && bun run format && bun lint:deps",
-		"bench": "vitest bench",
-		"bench:run": "vitest bench run",
-		"bench:ui": "vitest bench --ui",
-		"build": "nx run-many --targets=build:dist,build:types --projects=@tevm/bench ",
+		"build": "pnpm run clean && pnpm run build:dist && pnpm run build:types",
 		"build:dist": "tsup",
 		"build:types": "tsup --dts-only",
-		"clean": "rm -rf node_modules && rm -rf artifacts && rm -rf dist && rm -rf cache",
+		"clean": "rm -rf dist types",
 		"format": "biome format . --write",
 		"format:check": "biome format .",
-		"generate:contracts": "bun run node_modules/@tevm/ts-plugin/dist/bin/tevm-gen.js",
-		"lint": "biome check . --write --unsafe",
-		"lint:check": "biome check . --verbose",
-		"lint:deps": "bunx depcheck --ignores=@latticexyz/schema-type,@latticexyz/store,@latticexyz/world,@openzeppelin/contracts,@tevm/common",
-		"test:coverage": "vitest run --coverage"
+		"lint": "biome check .",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@latticexyz/schema-type": "^2.2.23",
 		"@latticexyz/store": "^2.2.23",
 		"@latticexyz/world": "^2.2.23",
-		"@openzeppelin/contracts": "5.6.1",
+		"@openzeppelin/contracts": "^5.6.1",
 		"@ponder/utils": "^0.2.18",
-		"@tevm/common": "workspace:^",
-		"@tevm/contract": "workspace:^",
-		"@tevm/esbuild-plugin": "workspace:^",
-		"@tevm/ts-plugin": "workspace:^"
+		"@tevm/common": "^1.0.0-rc.151",
+		"@tevm/contract": "^1.0.0-rc.151",
+		"@tevm/esbuild-plugin": "^1.0.0-rc.151",
+		"@tevm/ts-plugin": "^1.0.0-rc.151"
 	},
 	"devDependencies": {
-		"@tevm/tsconfig": "workspace:^",
-		"@tevm/tsupconfig": "workspace:^",
-		"@types/node": "^25.9.0"
+		"@tevm/memory-client": "^1.0.0-rc.151",
+		"@tevm/tsconfig": "^1.0.0-rc.151",
+		"@tevm/tsupconfig": "^1.0.0-rc.151",
+		"@types/node": "^25.0.0",
+		"viem": "^2.49.3",
+		"vitest": "^4.1.6"
 	},
 	"peerDependencies": {
 		"viem": "^2.49.3"
 	},
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"provenance": true
 	}
 }
