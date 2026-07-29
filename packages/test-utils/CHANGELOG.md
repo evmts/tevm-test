@@ -1,5 +1,13 @@
 # @tevm/test-utils
 
+## 1.0.0
+
+### Patch Changes
+
+- [`8f91c27`](https://github.com/evmts/tevm-test/commit/8f91c278725c2407185fb7c4d39465663572c72b) Thanks [@roninjin10](https://github.com/roninjin10)! - Correct and expand JSDoc: `toBeInitializedAccount` documents that it asserts the account exists in state (not that it has code), `toHaveState` documents `deployedBytecode` rather than a nonexistent `code` field and its strict-equality comparison, and `getAlchemyUrl` and `transports` gain full docs with examples.
+
+- [`b5bd8e4`](https://github.com/evmts/tevm-test/commit/b5bd8e477b5668616a7e3c0f2bc984302f639781) Thanks [@roninjin10](https://github.com/roninjin10)! - Publish the TEVM test libraries from their standalone repository.
+
 ## 1.0.0-rc.151
 
 ### Patch Changes
@@ -18,6 +26,7 @@
 ### Patch Changes
 
 - 826c7fa: - **New Features**
+
   - Improved error messages for contract call failures by decoding and displaying detailed revert reasons, including custom errors and panic codes.
   - Added a comprehensive revert reason decoder to provide clearer explanations for contract execution failures.
   - Error responses now include more context and human-readable explanations when contract execution fails.
@@ -349,6 +358,7 @@
 ### Patch Changes
 
 - [#1186](https://github.com/evmts/tevm-monorepo/pull/1186) [`7765446`](https://github.com/evmts/tevm-monorepo/commit/7765446beec1391a00f3d3dd8d015d5205e0371a) Thanks [@roninjin10](https://github.com/roninjin10)! - Moved files around to colocate code better. Some packages are disappearing
+
   - Tevm/Zod is now part of Tevm/actions
   - Tevm/actions-types moved to Tevm/actions
   - Tevm/procedures-types moved to Tevm/procedures
