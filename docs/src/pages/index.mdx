@@ -2,22 +2,15 @@
 title: Tevm Test
 description: Vitest matchers, a snapshot-aware test node, and contract fixtures for testing the EVM in TypeScript
 layout: minimal
+showSidebar: false
+outline: false
 ---
 
-import { HomePage } from 'vocs'
+import { Hero } from '../components/Hero.js'
+import { MatcherPlayground } from '../components/MatcherPlayground.js'
+import { TevmFamily } from '../components/TevmFamily.js'
 
-<HomePage.Root>
-  <HomePage.Logo />
-  <HomePage.Tagline>Test the EVM like you test everything else</HomePage.Tagline>
-  <HomePage.Description>
-    Vitest matchers for events, reverts, balances and state; a snapshot-aware Tevm node that makes forked
-    tests reproducible offline; and ready-made contract fixtures. All in TypeScript, no `forge test` required.
-  </HomePage.Description>
-  <HomePage.Buttons>
-    <HomePage.Button href="/getting-started" variant="accent">Get started</HomePage.Button>
-    <HomePage.Button href="https://github.com/evmts/tevm-test">GitHub</HomePage.Button>
-  </HomePage.Buttons>
-</HomePage.Root>
+<Hero />
 
 ## What is Tevm Test?
 
@@ -34,6 +27,8 @@ Tevm Test is the standalone home for Tevm's testing libraries. It publishes thre
 Solidity contracts are usually tested in Solidity, in a second toolchain, with a second set of assertions.
 That works, but the code that *calls* your contracts — the frontend, the indexer, the SDK — is TypeScript,
 and its tests are Vitest. Tevm Test lets that TypeScript suite make the same assertions Foundry makes:
+
+<div className="tevm-code-frame">
 
 ```ts
 import { SimpleContract } from '@tevm/test-utils'
@@ -55,22 +50,54 @@ test('set() emits ValueSet', async () => {
 })
 ```
 
+</div>
+
 No RPC endpoint, no anvil process, no separate assertion language.
 
 ## Three things that are hard elsewhere
 
-**Balance deltas.** `toChangeBalance` replays your transaction under a `prestateTracer` and diffs the
-pre/post state, so you get exact wei deltas including gas — and the same works for ERC20 balances, where
-the token's storage slot is discovered automatically rather than hardcoded.
+<div className="tevm-features">
+  <div className="tevm-feature">
+    <p className="tevm-feature-title">Balance deltas</p>
+    <p className="tevm-feature-body">
+      <code>toChangeBalance</code> replays your transaction under a <code>prestateTracer</code> and diffs the
+      pre/post state, so you get exact wei deltas including gas — and the same works for ERC20 balances, where
+      the token's storage slot is discovered automatically rather than hardcoded.
+    </p>
+  </div>
+  <div className="tevm-feature">
+    <p className="tevm-feature-title">Custom errors with arguments</p>
+    <p className="tevm-feature-body">
+      <code>toBeRevertedWithError(client, contract, 'InsufficientBalance').withErrorArgs(50n, 1000n)</code>
+      decodes the revert data against your ABI, with full type inference on the argument tuple.
+    </p>
+  </div>
+  <div className="tevm-feature">
+    <p className="tevm-feature-title">Forked tests that don't flake</p>
+    <p className="tevm-feature-body">
+      <code>createTestSnapshotNode</code> writes every upstream JSON-RPC response into
+      <code>__rpc_snapshots__/&lt;test file&gt;.snap.json</code> next to your test. Commit it, and CI never
+      touches the network again.
+    </p>
+  </div>
+</div>
 
-**Custom errors with arguments.** `toBeRevertedWithError(client, contract, 'InsufficientBalance').withErrorArgs(50n, 1000n)`
-decodes the revert data against your ABI, with full type inference on the argument tuple.
+<div className="tevm-section" id="playground">
 
-**Forked tests that don't flake.** `createTestSnapshotNode` writes every upstream JSON-RPC response into
-`__rpc_snapshots__/<test file>.snap.json` next to your test. Commit it, and CI never touches the network again.
+## Matcher playground
+
+Try the pure matchers live — same validation logic as `@tevm/test-matchers`, running in your browser:
+
+<MatcherPlayground />
+
+</div>
 
 ## Next
 
 - [Getting started](/getting-started) — install, set up Vitest, write your first assertion
 - [Guides](/guides/events) — one page per matcher family, with complete runnable examples
 - [Relation to Tevm](/relation-to-tevm) — how this repo fits with `tevm` core and the other split repos
+
+<div className="tevm-section-narrow">
+  <TevmFamily current="Test" />
+</div>
