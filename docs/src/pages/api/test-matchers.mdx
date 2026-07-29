@@ -1,0 +1,272 @@
+---
+title: '@tevm/test-matchers'
+description: API reference for the Tevm Vitest matchers
+---
+
+# `@tevm/test-matchers`
+
+Vitest matchers for EVM behaviour. The package has no callable entry point — importing it registers
+every matcher on `expect` and augments Vitest's `Assertion` and `AsymmetricMatchersContaining`
+interfaces:
+
+```ts [vitest.setup.ts]
+import '@tevm/test-matchers'
+```
+
+Peer dependencies: `tevm >= 1.0.0`, `viem ^2.49.3`. Requires Node ≥ 24.
+
+Every matcher that touches chain state accepts either a `TevmNode` or a viem `Client`. When given
+something with a `request` method it is wrapped in `createTevmNode({ fork: { transport: client } })`.
+
+---
+
+## Events
+
+### `toEmit`
+
+```ts
+toEmit<TAbi, TEventName>(contract: ContainsContractAbi<TAbi>, eventName: TEventName): ChainableAssertion
+toEmit(eventSignature: string): ChainableAssertion
+toEmit(eventSelector: Hex): ChainableAssertion
+```
+
+Asserts the transaction emitted the event. `received` may be a transaction hash, a receipt, a Tevm call
+result, or a promise for any of those. With the contract form, the chained argument matchers are typed
+from `ExtractAbiEvent<TAbi, TEventName>`.
+
+### `withEventArgs`
+
+```ts
+withEventArgs(...expectedArgs): ChainableAssertion
+```
+
+Chains after `toEmit`. Exact positional match on all event arguments. Cannot be preceded by `.not`.
+
+### `withEventNamedArgs`
+
+```ts
+withEventNamedArgs(expectedArgs: Partial<NamedArgs>): ChainableAssertion
+```
+
+Chains after `toEmit`. Partial match by parameter name; `{}` matches any event of that type. Cannot be
+preceded by `.not`.
+
+→ [Events guide](/guides/events)
+
+---
+
+## Reverts and errors
+
+### `toBeReverted`
+
+```ts
+toBeReverted(client?: Client): Promise<void>
+```
+
+Asserts the transaction reverted for any reason — revert strings, custom errors, and panics all pass.
+
+### `toBeRevertedWithString`
+
+```ts
+toBeRevertedWithString(client: Client, revertString: string): Promise<void>
+```
+
+Asserts an `Error(string)` revert whose message equals `revertString` **exactly**. Panics and custom
+errors do not match.
+
+### `toBeRevertedWithError`
+
+```ts
+toBeRevertedWithError<TAbi, TErrorName>(client: Client, contract: ContainsContractAbi<TAbi>, errorName: TErrorName): ChainableAssertion
+toBeRevertedWithError(client: Client, errorSignature: string): ChainableAssertion
+toBeRevertedWithError(client: Client, errorSelector: Hex): ChainableAssertion
+```
+
+Asserts a Solidity custom error revert. With the contract form, `withErrorArgs` is typed from
+`ExtractAbiError<TAbi, TErrorName>`.
+
+### `withErrorArgs` / `withErrorNamedArgs`
+
+```ts
+withErrorArgs(...expectedArgs): ChainableAssertion
+withErrorNamedArgs(expectedArgs: Partial<NamedArgs>): ChainableAssertion
+```
+
+Chain after `toBeRevertedWithError`. Positional-exact and named-partial respectively. Neither may be
+preceded by `.not`.
+
+→ [Errors guide](/guides/errors)
+
+---
+
+## Balances
+
+### `toChangeBalance`
+
+```ts
+toChangeBalance(
+  client: Client | TevmNode,
+  account: Address | ContainsAddress,
+  expectedChange: bigint | number | string,
+): Promise<void>
+```
+
+Asserts the account's ETH balance changed by exactly `expectedChange` (signed; gas is included for the
+sender). Computed by replaying the transaction under `debug_traceTransaction` with the `prestateTracer`
+in diff mode.
+
+**Throws** if `account` is not a valid address.
+
+### `toChangeBalances`
+
+```ts
+toChangeBalances(client: Client | TevmNode, balanceChanges: BalanceChange[]): Promise<void>
+```
+
+Passes only if every entry matches. Under `.not`, passes if at least one entry differs. The failure
+message names the mismatching indexes.
+
+### `toChangeTokenBalance`
+
+```ts
+toChangeTokenBalance(
+  client: Client | TevmNode,
+  tokenContract: Address | ContainsAddress,
+  account: Address | ContainsAddress,
+  expectedChange: bigint | number | string,
+): Promise<void>
+```
+
+Same, for an ERC20. The balance slot is discovered by probing the storage slots the transaction
+touched, so non-standard layouts work without configuration.
+
+**Throws** if the token address or the account address is invalid, or if the initial `balanceOf` call
+fails.
+
+### `toChangeTokenBalances`
+
+```ts
+toChangeTokenBalances(
+  client: Client | TevmNode,
+  tokenContract: Address | ContainsAddress,
+  balanceChanges: BalanceChange[],
+): Promise<void>
+```
+
+### `BalanceChange`
+
+```ts
+interface BalanceChange {
+	account: Address | ContainsAddress
+	amount: bigint | number | string
+}
+```
+
+→ [Balances guide](/guides/balances)
+
+---
+
+## Account state
+
+### `toBeInitializedAccount`
+
+```ts
+toBeInitializedAccount(client: Client | TevmNode): Promise<void>
+```
+
+Asserts the account exists in state — reading it succeeds and it has a nonce, balance, storage root, or
+code hash. Touched EOAs and deployed contracts both qualify.
+
+**Throws** if the received value is not a valid address.
+
+### `toHaveState`
+
+```ts
+toHaveState(client: Client | TevmNode, expectedState: ExpectedState): Promise<void>
+
+type ExpectedState = Partial<Omit<GetAccountResult, 'address' | 'errors'>>
+```
+
+Partial match on `balance`, `nonce`, `deployedBytecode`, `storageRoot`, `storage`, and the rest of
+`GetAccountResult`. Each provided key is compared with strict equality — hex values are not normalised.
+
+### `toHaveStorageAt`
+
+```ts
+toHaveStorageAt(client: Client | TevmNode, expectedStorage: ExpectedStorage): Promise<void>
+
+interface StorageEntry { slot: Hex; value: Hex }
+type ExpectedStorage = StorageEntry | StorageEntry[]
+```
+
+→ [State guide](/guides/state)
+
+---
+
+## Contract calls
+
+### `toCallContractFunction`
+
+```ts
+toCallContractFunction<TAbi, TFunctionName>(
+  client: Client | TevmNode,
+  contract: ContainsContractAddressAndOptionalAbi<TAbi>,
+  functionName: TFunctionName,
+): ChainableAssertion
+toCallContractFunction(client, contract, functionSignature: string): ChainableAssertion
+toCallContractFunction(client, contract, functionSelector: Hex): ChainableAssertion
+```
+
+Asserts the transaction invoked the function on that contract, including calls made from inside another
+contract. Uses the `4byteTracer`.
+
+**Throws** if tracing the transaction fails.
+
+### `withFunctionArgs` / `withFunctionNamedArgs`
+
+Chain after `toCallContractFunction`. Positional-exact and named-partial. Neither may be preceded by
+`.not`.
+
+→ [Contract calls guide](/guides/contract-calls)
+
+---
+
+## Hex and address utilities
+
+These are synchronous — no `await`, no client.
+
+```ts
+toBeAddress(opts?: IsAddressOptions): void
+toEqualAddress(expected: unknown): void
+toBeHex(opts?: IsHexOptions): void
+toEqualHex(expected: unknown, opts?: EqualHexOptions): void
+
+type IsHexOptions = { strict?: boolean; size?: number }   // size in bytes
+type EqualHexOptions = { exact?: boolean }                // default false: trims leading zeros
+```
+
+→ [Utils guide](/guides/utils)
+
+---
+
+## Exported types
+
+```ts
+import type {
+	BalanceChange,
+	ContainsAddress,
+	ContainsContractAbi,
+	ContainsContractAddressAndOptionalAbi,
+	ContainsTransactionAny,
+	ContainsTransactionLogs,
+	EqualHexOptions,
+	IsAddressOptions,
+	IsHexOptions,
+} from '@tevm/test-matchers'
+```
+
+`ContainsTransactionAny` is the union the transaction-shaped matchers accept: a transaction hash, an
+object with `transactionHash`, or an object with `txHash` — plus a promise for any of them.
+
+**Throws** `Transaction hash is undefined, you need to pass a transaction hash, receipt or call result,
+or a promise that resolves to one of those` when the received value is none of these.

@@ -1,0 +1,135 @@
+---
+title: Reverts and errors
+description: Assert that a transaction reverted, with a string message, or with a decoded custom error
+---
+
+# Reverts and errors
+
+Three matchers cover the revert surface, from coarse to precise:
+
+| Matcher | Use for |
+| --- | --- |
+| `toBeReverted(client?)` | Any revert — `require`, `revert()`, custom errors, panics |
+| `toBeRevertedWithString(client, message)` | `revert("message")` / `require(cond, "message")` |
+| `toBeRevertedWithError(client, contract, name)` | Solidity custom errors, with decoded arguments |
+
+Only `toBeRevertedWithError` is chainable — follow it with `.withErrorArgs(...)` or
+`.withErrorNamedArgs({...})`.
+
+## Complete example
+
+`ErrorContract` from `@tevm/test-utils` exposes one function per revert flavour, which makes it a good
+worked example.
+
+```ts [errors.spec.ts]
+import { tevmDefault } from '@tevm/common'
+import { createTevmTransport, tevmDeploy } from '@tevm/memory-client'
+import { ErrorContract } from '@tevm/test-utils'
+import { PREFUNDED_ACCOUNTS } from '@tevm/utils'
+import type { Address } from 'viem'
+import { createClient } from 'viem'
+import { writeContract } from 'viem/actions'
+import { assert, beforeAll, describe, expect, it } from 'vitest'
+
+const client = createClient({
+	transport: createTevmTransport(),
+	chain: tevmDefault,
+	account: PREFUNDED_ACCOUNTS[0],
+}).extend(() => ({ mode: 'anvil' }))
+
+describe('ErrorContract', () => {
+	let contract: ReturnType<typeof ErrorContract.withAddress>
+
+	beforeAll(async () => {
+		const { createdAddress } = await tevmDeploy(client, {
+			...ErrorContract.deploy(),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'contract was not deployed')
+		contract = ErrorContract.withAddress(createdAddress as Address)
+	})
+
+	it('detects any revert', async () => {
+		await expect(
+			writeContract(client, contract.write.revertWithoutMessage()),
+		).toBeReverted(client)
+	})
+
+	it('detects a revert string', async () => {
+		await expect(
+			writeContract(client, contract.write.revertWithStringError()),
+		).toBeRevertedWithString(client, 'This is a string error message')
+	})
+
+	it('detects a parameterless custom error', async () => {
+		await expect(
+			writeContract(client, contract.write.revertWithSimpleCustomError()),
+		).toBeRevertedWithError(client, contract, 'SimpleError')
+	})
+
+	it('decodes custom error arguments positionally', async () => {
+		await expect(writeContract(client, contract.write.revertWithCustomErrorSingleParam()))
+			.toBeRevertedWithError(client, contract, 'ErrorWithSingleParam')
+			.withErrorArgs(100n)
+	})
+
+	it('decodes custom error arguments by name', async () => {
+		await expect(writeContract(client, contract.write.revertWithCustomErrorSingleParam()))
+			.toBeRevertedWithError(client, contract, 'ErrorWithSingleParam')
+			.withErrorNamedArgs({ amount: 100n })
+	})
+
+	it('treats panics as reverts, but not as revert strings', async () => {
+		await expect(
+			writeContract(client, contract.write.panicWithAssertFailure()),
+		).toBeReverted(client)
+		await expect(
+			writeContract(client, contract.write.panicWithAssertFailure()),
+		).not.toBeRevertedWithString(client, 'assertion failed')
+	})
+})
+```
+
+## Identifying the error
+
+Like `toEmit`, `toBeRevertedWithError` takes three forms:
+
+```ts
+// Contract + name — fully typed argument matching
+await expect(tx).toBeRevertedWithError(client, contract, 'ErrorWithSingleParam')
+
+// Signature — untyped arguments
+await expect(tx).toBeRevertedWithError(client, 'ErrorWithSingleParam(uint256)')
+
+// Selector
+await expect(tx).toBeRevertedWithError(client, '0xf052b721')
+```
+
+With the contract form, `withErrorArgs` is inferred from `ExtractAbiError<TAbi, TErrorName>`, so
+argument count and types are checked at compile time.
+
+## Revert strings must match exactly
+
+`toBeRevertedWithString` compares the decoded `Error(string)` payload for equality — it is not a
+substring or regex match:
+
+```ts
+// Contract: require(amount > 0, "Amount must be positive")
+await expect(tx).toBeRevertedWithString(client, 'Amount must be positive') // ✅
+await expect(tx).toBeRevertedWithString(client, 'Amount must be') // ❌ fails
+```
+
+## Panics
+
+Solidity `panic` codes (division by zero, array out of bounds, arithmetic overflow, `assert` failure)
+are reverts, so `toBeReverted` catches them. They are not `Error(string)` reverts, so
+`toBeRevertedWithString` will not match them, and they are not in your ABI, so `toBeRevertedWithError`
+will not either.
+
+```ts
+await expect(writeContract(client, contract.write.panicWithDivisionByZero())).toBeReverted(client)
+```
+
+:::warning
+`.not` cannot precede `withErrorArgs` / `withErrorNamedArgs`, same as with events.
+:::

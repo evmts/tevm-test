@@ -1,0 +1,169 @@
+---
+title: Balances
+description: Assert exact ETH and ERC20 balance deltas caused by a transaction
+---
+
+# Balances
+
+Four matchers assert balance *deltas* — the change caused by one transaction, not the resulting balance:
+
+| Matcher | Asserts |
+| --- | --- |
+| `toChangeBalance(client, account, delta)` | One account's ETH balance changed by `delta` |
+| `toChangeBalances(client, changes)` | Several accounts' ETH balances changed |
+| `toChangeTokenBalance(client, token, account, delta)` | One account's ERC20 balance changed |
+| `toChangeTokenBalances(client, token, changes)` | Several accounts' ERC20 balances changed |
+
+Deltas are signed: negative means the balance decreased. `bigint`, `number`, and decimal `string` are all
+accepted and normalised to `bigint`.
+
+## How it works
+
+The matcher does not read balances before and after. It replays the transaction through
+`debug_traceTransaction` with the `prestateTracer` in diff mode, and subtracts `pre` from `post`.
+That means:
+
+- The delta includes gas paid by the sender.
+- It works even if other transactions land in the same block.
+- For ERC20s there is no need to know the balance slot: the matcher scans the storage slots that changed,
+  probes each candidate with `anvil_setStorageAt`, and keeps the one that actually moves `balanceOf`.
+  Non-standard token layouts and proxies work without configuration.
+
+## ETH balances
+
+```ts [ethBalances.spec.ts]
+import { callHandler, deployHandler } from '@tevm/actions'
+import { createTevmNode } from '@tevm/node'
+import { PREFUNDED_ACCOUNTS } from '@tevm/utils'
+import { parseEther } from 'viem'
+import { beforeEach, describe, expect, it } from 'vitest'
+
+const sender = PREFUNDED_ACCOUNTS[1]
+const recipient = PREFUNDED_ACCOUNTS[2]
+const amount = parseEther('1')
+
+describe('ETH transfers', () => {
+	let node: ReturnType<typeof createTevmNode>
+	let gasCost: bigint
+
+	beforeEach(async () => {
+		// A fresh node per test avoids mining conflicts between tests.
+		node = createTevmNode()
+
+		const res = await callHandler(node)({
+			from: sender.address,
+			to: recipient.address,
+			value: amount,
+		})
+		if (!res.amountSpent) throw new Error('could not estimate gas cost')
+		gasCost = res.amountSpent
+	})
+
+	it('debits the sender by value + gas', async () => {
+		await expect(
+			callHandler(node)({
+				from: sender.address,
+				to: recipient.address,
+				value: amount,
+				addToBlockchain: true,
+			}),
+		).toChangeBalance(node, sender.address, -(amount + gasCost))
+	})
+
+	it('moves value between both sides', async () => {
+		await expect(
+			callHandler(node)({
+				from: sender.address,
+				to: recipient.address,
+				value: amount,
+				addToBlockchain: true,
+			}),
+		).toChangeBalances(node, [
+			{ account: sender.address, amount: -(amount + gasCost) },
+			{ account: recipient.address, amount },
+		])
+	})
+})
+```
+
+Accounts may be passed as an address string or as any object with an `address` property — a viem
+`Account`, a Tevm `Contract`, or `{ address }`.
+
+## ERC20 balances
+
+```ts [tokenBalances.spec.ts]
+import { contractHandler, dealHandler, deployHandler } from '@tevm/actions'
+import { ERC20 } from '@tevm/contract'
+import { createTevmNode } from '@tevm/node'
+import { PREFUNDED_ACCOUNTS } from '@tevm/utils'
+import type { Address } from 'viem'
+import { parseEther } from 'viem'
+import { assert, beforeEach, describe, expect, it } from 'vitest'
+
+const sender = PREFUNDED_ACCOUNTS[1]
+const recipient = PREFUNDED_ACCOUNTS[2]
+const amount = parseEther('100')
+
+describe('ERC20 transfers', () => {
+	let node: ReturnType<typeof createTevmNode>
+	let token: ReturnType<typeof ERC20.withAddress>
+
+	beforeEach(async () => {
+		node = createTevmNode()
+
+		const { createdAddress } = await deployHandler(node)({
+			...ERC20.deploy('TestToken', 'TST'),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'token was not deployed')
+		token = ERC20.withAddress(createdAddress as Address)
+
+		// `dealHandler` writes the balance slot directly — no minting function required.
+		await dealHandler(node)({
+			erc20: token.address,
+			account: sender.address,
+			amount: parseEther('1000'),
+		})
+	})
+
+	it('moves tokens from sender to recipient', async () => {
+		await expect(
+			contractHandler(node)({
+				...token.write.transfer(recipient.address, amount),
+				from: sender.address,
+				addToBlockchain: true,
+			}),
+		).toChangeTokenBalances(node, token, [
+			{ account: sender.address, amount: -amount },
+			{ account: recipient.address, amount },
+		])
+	})
+
+	it('debits a single account', async () => {
+		await expect(
+			contractHandler(node)({
+				...token.write.transfer(recipient.address, amount),
+				from: sender.address,
+				addToBlockchain: true,
+			}),
+		).toChangeTokenBalance(node, token, sender.address, -amount)
+	})
+})
+```
+
+## `.not` semantics for the plural matchers
+
+`toChangeBalances` and `toChangeTokenBalances` pass only if **every** listed change matches. Under
+`.not`, they therefore pass if **at least one** change differs — not if all of them differ. The failure
+message names the indexes that did not match, which makes a partial mismatch easy to spot:
+
+```
+Expected transaction to change balances by the specified amounts,
+but some of them didn't pass (at indexes [1])
+```
+
+## Passing a client instead of a node
+
+All four matchers accept either a `TevmNode` or a viem `Client`. When given a viem client, the matcher
+first waits for the receipt via `waitForTransactionReceipt`, then traces. Tracing through an EIP-1193
+fork client currently requires replaying the receipt block, so prefer passing a `TevmNode` where you can.

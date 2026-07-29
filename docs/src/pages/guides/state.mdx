@@ -1,0 +1,122 @@
+---
+title: Account state
+description: Assert balance, nonce, deployed bytecode, and raw storage slots on an account
+---
+
+# Account state
+
+These matchers assert on an *account*, not on a transaction. The value you pass to `expect` is an
+address (or anything with an `address` property).
+
+| Matcher | Asserts |
+| --- | --- |
+| `toBeInitializedAccount(client)` | The account exists in state — reading it succeeds |
+| `toHaveState(client, expected)` | A partial match against balance / nonce / deployedBytecode / storageRoot / … |
+| `toHaveStorageAt(client, expected)` | Specific raw storage slots hold specific values |
+
+## Complete example
+
+```ts [state.spec.ts]
+import { deployHandler, setAccountHandler } from '@tevm/actions'
+import { createTevmNode } from '@tevm/node'
+import { SimpleContract } from '@tevm/test-utils'
+import { type Address, parseEther, toHex } from 'viem'
+import { assert, beforeAll, describe, expect, it } from 'vitest'
+
+const node = createTevmNode()
+
+const eoa = {
+	address: `0x${'1'.repeat(40)}` as Address,
+	balance: parseEther('1'),
+	nonce: 10n,
+}
+
+const storage = {
+	[toHex(0, { size: 32 })]: toHex(1, { size: 1 }),
+	[toHex(1, { size: 32 })]: toHex(2, { size: 1 }),
+}
+
+describe('account state', () => {
+	let contractAddress: Address
+
+	beforeAll(async () => {
+		await setAccountHandler(node)(eoa)
+
+		const { createdAddress } = await deployHandler(node)({
+			...SimpleContract.deploy(69n),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'contract was not deployed')
+		contractAddress = createdAddress as Address
+
+		await setAccountHandler(node)({ address: contractAddress, state: storage })
+	})
+
+	it('matches balance and nonce', async () => {
+		await expect(eoa.address).toHaveState(node, {
+			balance: eoa.balance,
+			nonce: eoa.nonce,
+		})
+	})
+
+	it('matches deployed bytecode', async () => {
+		await expect(contractAddress).toHaveState(node, {
+			deployedBytecode: SimpleContract.deployedBytecode,
+		})
+	})
+
+	it('recognises accounts that exist in state', async () => {
+		await expect(contractAddress).toBeInitializedAccount(node)
+		await expect(eoa.address).toBeInitializedAccount(node)
+
+		const untouched = `0x${'9'.repeat(40)}` as Address
+		await expect(untouched).not.toBeInitializedAccount(node)
+	})
+
+	it('matches a single storage slot', async () => {
+		await expect(contractAddress).toHaveStorageAt(node, {
+			slot: toHex(0, { size: 32 }),
+			value: toHex(1, { size: 1 }),
+		})
+	})
+
+	it('matches several storage slots', async () => {
+		await expect(contractAddress).toHaveStorageAt(
+			node,
+			Object.entries(storage).map(([slot, value]) => ({
+				slot: slot as `0x${string}`,
+				value: value as `0x${string}`,
+			})),
+		)
+	})
+})
+```
+
+## `toHaveState` is a partial match
+
+`ExpectedState` is `Partial<Omit<GetAccountResult, 'address' | 'errors'>>`, so you list only the fields
+you care about and the rest are ignored:
+
+```ts
+await expect(address).toHaveState(node, { balance: 0n })
+```
+
+The field for contract code is **`deployedBytecode`** — the runtime code as returned by `eth_getCode`,
+not the creation bytecode you deploy.
+
+## Comparison is strict
+
+Both `toHaveState` and `toHaveStorageAt` compare with `!==` against the values returned by
+`getAccount({ returnStorage: true })`. Hex strings are **not** normalised, so `0x1` and `0x0000…01`
+are different values. Write the value the way the node stores it — usually the same helper you used to
+write it, e.g. `toHex(1, { size: 1 })`.
+
+If you want normalised comparison, read the slot yourself and use
+[`toEqualHex`](/guides/utils), which trims leading zeros by default.
+
+## Which client?
+
+Every state matcher accepts a `TevmNode` or a viem `Client`. When you pass something with a `request`
+method, the matcher wraps it in `createTevmNode({ fork: { transport: client } })` and reads state
+through that fork — so the matchers work against any chain your client can reach, not just a local
+Tevm node. Passing the node directly is cheaper when you already have one.

@@ -1,0 +1,90 @@
+---
+title: Relation to Tevm
+description: How tevm-test fits with Tevm core and the other split repositories
+---
+
+# Relation to Tevm
+
+## Where this repo sits
+
+Tevm used to be a single monorepo, [`evmts/tevm-monorepo`](https://github.com/evmts/tevm-monorepo).
+It is being split into focused repositories, each publishing its own packages on its own cadence with
+its Git history preserved. `evmts/tevm-test` is the one that owns testing.
+
+```
+tevm-monorepo        core node, EVM, state, actions, memory-client — the `tevm` package
+├── tevm-test        @tevm/test-matchers, @tevm/test-node, @tevm/test-utils   ← you are here
+├── tevm-contract    @tevm/contract — the shared, type-safe contract kernel
+├── tevm-utils       @tevm/utils — shared low-level helpers
+├── tevm-bundler     Solidity-import compiler and the Vite/webpack/Rollup/… plugins
+├── tevm-cli         @tevm/cli — the `tevm` binary
+├── tevm-ethers      Ethers v6 integration
+├── tevm-logger      @tevm/logger — shared structured logging
+├── tevm-mud         @tevm/mud — MUD optimistic state integration
+└── tevm-examples    standalone example applications
+```
+
+## What depends on what
+
+Tevm Test sits **on top of** core. It consumes `tevm`, `@tevm/node`, `@tevm/actions`,
+`@tevm/memory-client`, `@tevm/contract`, `@tevm/errors`, and `@tevm/utils`; nothing in core depends on it
+at runtime.
+
+| Package | Depends on | Peer dependencies |
+| --- | --- | --- |
+| `@tevm/test-matchers` | `@tevm/actions`, `@tevm/contract`, `@tevm/errors`, `@tevm/node`, `@tevm/utils`, `abitype`, `ox`, `viem`, `vitest` | `tevm >= 1.0.0`, `viem ^2.49.3` |
+| `@tevm/test-node` | `@tevm/common`, `@tevm/memory-client`, `@tevm/node`, `tevm/server` | `tevm`, `viem` |
+| `@tevm/test-utils` | `@tevm/contract`, `@ponder/utils`, `viem` | `viem` |
+
+The one-way dependency is why the split is worth doing: test tooling can ship a fix on Tuesday without
+waiting for a core release, and a core release does not have to re-publish the matchers.
+
+## Versioning
+
+The packages track Tevm core's version line — both are on `1.0.0-rc.151` today — so that a matching pair
+is obvious at a glance. They are released independently with [Changesets](https://github.com/changesets/changesets)
+and published from GitHub Actions with npm provenance.
+
+That coupling is a convention, not a constraint enforced by the resolver. `@tevm/test-matchers` declares
+`tevm >= 1.0.0` as a peer, so it will install against any 1.x core.
+
+## Which package do I want?
+
+- **Testing your own contracts or your app's chain interactions in TypeScript** —
+  `@tevm/test-matchers`, plus `@tevm/test-utils` if you want ready-made fixtures.
+- **Testing against a real chain without the flakiness** — `@tevm/test-node`.
+- **Running an EVM in the browser, in Node, or in an app** — you want core: [`tevm`](https://tevm.sh)
+  and [node.tevm.sh](https://node.tevm.sh). Nothing here is needed in production; these are devDependencies.
+- **Importing `.sol` files directly in TypeScript** — that's the bundler, in
+  [`evmts/tevm-bundler`](https://github.com/evmts/tevm-bundler).
+
+## Documentation map
+
+| Site | Covers |
+| --- | --- |
+| [tevm.sh](https://tevm.sh) | Tevm overview and the wider ecosystem |
+| [node.tevm.sh](https://node.tevm.sh) | The Tevm node: EVM, state, forking, JSON-RPC, bundler |
+| **test.tevm.sh** | This site — matchers, snapshot test node, fixtures |
+
+## Contributing
+
+Issues and pull requests for anything on this site belong in
+[`evmts/tevm-test`](https://github.com/evmts/tevm-test). Bugs in the EVM itself, in forking, or in the
+JSON-RPC layer belong in [`evmts/tevm-monorepo`](https://github.com/evmts/tevm-monorepo).
+
+Local development needs Node 24 and pnpm 9:
+
+```sh
+pnpm install
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm test
+```
+
+The docs site is in `docs/`:
+
+```sh
+pnpm --filter @tevm/test-docs dev
+pnpm --filter @tevm/test-docs build
+```

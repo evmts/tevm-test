@@ -1,0 +1,187 @@
+---
+title: Forked snapshot tests
+description: Make fork tests deterministic and offline with @tevm/test-node
+---
+
+# Forked snapshot tests
+
+Fork tests are the most valuable tests you can write against a live protocol, and the most fragile:
+they need an RPC endpoint, they burn rate limit, and they break when the upstream node reorganises,
+prunes, or simply rate-limits you at the wrong moment.
+
+`@tevm/test-node` fixes that by recording every upstream JSON-RPC response into a file next to your test.
+The first run hits the network; every subsequent run — including CI — replays from disk.
+
+## Three entry points
+
+| Function | Returns | Use when |
+| --- | --- | --- |
+| `createTestSnapshotClient(options)` | A `MemoryClient` with caching + a server | You want viem actions (`getBlock`, `readContract`, …) |
+| `createTestSnapshotNode(options)` | A `TevmNode` with caching + a server | You want Tevm handlers/procedures |
+| `createTestSnapshotTransport(options)` | A raw EIP-1193 `{ request }` with caching | You want to wrap the transport and hand it to something else |
+
+All three share the same `server` interface (`http`, `rpcUrl`, `start()`, `stop()`) and the same
+`saveSnapshots()` method, and all take the same `test` options.
+
+## Complete example
+
+```ts [fork.spec.ts]
+import { createTestSnapshotClient } from '@tevm/test-node'
+import { http } from 'viem'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+const client = createTestSnapshotClient({
+	fork: { transport: http('https://mainnet.optimism.io')() },
+})
+
+describe('optimism fork', () => {
+	beforeAll(async () => {
+		await client.server.start()
+	})
+
+	afterAll(async () => {
+		// Stops the HTTP server and flushes snapshots to disk.
+		await client.server.stop()
+	})
+
+	it('reads a historical block', async () => {
+		const block = await client.getBlock({ blockNumber: 128_000_000n })
+		expect(block.number).toBe(128_000_000n)
+	})
+})
+```
+
+Run it once with network access. A file appears at
+`__rpc_snapshots__/fork.spec.ts.snap.json`, keyed by the normalised request:
+
+```json
+{
+  "[\"2.0\",\"eth_getBlockByNumber\",\"0x7a11800\",false]": {
+    "number": "0x7a11800",
+    "hash": "0x…",
+    "transactions": []
+  }
+}
+```
+
+Commit that file. From then on the test runs with no network at all.
+
+## Using the node instead of the client
+
+```ts [forkNode.spec.ts]
+import { blockNumberProcedure } from '@tevm/actions'
+import { createTestSnapshotNode } from '@tevm/test-node'
+import { http } from 'viem'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+const node = createTestSnapshotNode({
+	fork: { transport: http('https://mainnet.optimism.io')() },
+})
+
+describe('optimism fork node', () => {
+	beforeAll(async () => await node.server.start())
+	afterAll(async () => await node.server.stop())
+
+	it('answers eth_blockNumber', async () => {
+		const res = await blockNumberProcedure(node)({
+			jsonrpc: '2.0',
+			method: 'eth_blockNumber',
+			id: 1,
+			params: [],
+		})
+		expect(res.result).toBeDefined()
+	})
+})
+```
+
+## What gets cached
+
+Only requests whose response is deterministic. `@tevm/test-node` inspects the method **and its
+parameters**:
+
+- **Cached:** static block tags — a block hash, a hex block number, or `earliest`.
+- **Not cached:** `latest`, `pending`, `safe`, `finalized`. Their answers change, so caching them
+  would bake a lie into your snapshot.
+- **Not cached:** anything with side effects (`eth_sendRawTransaction`, and friends).
+- **`eth_call` / `eth_estimateGas`:** cached only when the transaction fully pins its cost inputs —
+  `nonce` and `gas` plus either `gasPrice` or both `maxFeePerGas` and `maxPriorityFeePerGas`.
+
+The practical consequence: **pin your fork to a block number.** A test that reads `latest` will hit the
+network on every run and will not be reproducible, by design.
+
+```ts
+const client = createTestSnapshotClient({
+	fork: {
+		transport: http('https://mainnet.optimism.io')(),
+		blockTag: 128_000_000n, // pin it
+	},
+})
+```
+
+## Where snapshots go
+
+`test.resolveSnapshotPath` controls path resolution:
+
+```ts
+createTestSnapshotClient({
+	fork: { transport: http(rpcUrl)() },
+	test: {
+		// 'vitest' (default) — auto-detects vitest or Bun and writes
+		// __rpc_snapshots__/<test file name>.snap.json next to the test.
+		resolveSnapshotPath: 'vitest',
+	},
+})
+```
+
+Pass `'bun'` to force the Bun test resolver, or a function returning an absolute path — including the
+filename — when you are not in a supported test runner:
+
+```ts
+test: {
+	resolveSnapshotPath: () => '/abs/path/to/my-snapshots.json',
+}
+```
+
+## When snapshots are written
+
+`test.autosave` controls flushing:
+
+| Mode | Behaviour |
+| --- | --- |
+| `'onRequest'` (default) | Write after each newly cached request. Safest — a crashed run keeps what it learned. |
+| `'onStop'` | Write once, in `server.stop()`. Faster for large suites. |
+| `'onSave'` | Never write automatically; you call `saveSnapshots()`. |
+
+`saveSnapshots()` is available in all modes and flushes without stopping the server, which is useful
+for inspecting the file mid-test.
+
+```ts
+const client = createTestSnapshotClient({
+	fork: { transport: http(rpcUrl)() },
+	test: { autosave: 'onStop' },
+})
+```
+
+:::warning
+With `autosave: 'onStop'`, nothing is written unless `server.stop()` runs. Put it in `afterAll` and make
+sure the suite does not exit early.
+:::
+
+## CI
+
+Two workable policies:
+
+- **Committed snapshots (recommended).** Commit `__rpc_snapshots__/`. CI needs no RPC credentials and
+  cannot flake. A test that needs new data fails until someone re-records it locally — which is the
+  correct signal, because the fixture changed.
+- **Live re-record.** Give CI an endpoint and let it repopulate. Simpler to maintain, but you are back
+  to depending on someone else's uptime.
+
+## Errors
+
+`createTestSnapshotClient`, `createTestSnapshotNode`, and `createTestSnapshotTransport` all throw
+synchronously if no fork transport is supplied:
+
+```
+Fork transport is required in options.fork.transport
+```

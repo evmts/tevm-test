@@ -1,0 +1,80 @@
+---
+title: Hex and address utilities
+description: Synchronous matchers for validating and comparing addresses and hex strings
+---
+
+# Hex and address utilities
+
+Four small synchronous matchers. They need no client, no node, and no `await` — they are for the
+plumbing assertions that otherwise turn into `expect(isAddress(x)).toBe(true)` with a useless failure
+message.
+
+| Matcher | Asserts |
+| --- | --- |
+| `toBeAddress(opts?)` | The value is a valid Ethereum address |
+| `toEqualAddress(expected)` | Two addresses are equal, case-insensitively |
+| `toBeHex(opts?)` | The value is a valid hex string, optionally of an exact byte size |
+| `toEqualHex(expected, opts?)` | Two hex strings are equal, normalised by default |
+
+## Complete example
+
+```ts [utils.spec.ts]
+import { describe, expect, it } from 'vitest'
+
+describe('hex and address matchers', () => {
+	it('validates addresses', () => {
+		// Checksum (EIP-55) is enforced by default.
+		expect('0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC').toBeAddress()
+
+		// Opt out for lowercase or uppercase input.
+		expect('0xa5cc3c03994db5b0d9a5eedd10cabab0813678ac').toBeAddress({ strict: false })
+
+		expect('not-an-address').not.toBeAddress()
+	})
+
+	it('compares addresses case-insensitively', () => {
+		expect('0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC').toEqualAddress(
+			'0xa5cc3c03994db5b0d9a5eedd10cabab0813678ac',
+		)
+	})
+
+	it('validates hex strings', () => {
+		expect('0x1234abcd').toBeHex()
+
+		// Transaction hashes are 32 bytes.
+		expect(`0x${'ab'.repeat(32)}`).toBeHex({ size: 32 })
+
+		// Function selectors are 4 bytes.
+		expect('0xa9059cbb').toBeHex({ size: 4 })
+
+		expect('0xzz').not.toBeHex()
+	})
+
+	it('compares hex strings', () => {
+		// Leading zeros are trimmed before comparison by default.
+		expect('0x000123').toEqualHex('0x123')
+		expect('0x0').toEqualHex('0x00')
+
+		// Comparison is case-insensitive.
+		expect('0xabcd').toEqualHex('0xABCD')
+
+		// Opt into byte-for-byte comparison.
+		expect('0x000123').toEqualHex('0x000123', { exact: true })
+		expect('0x000123').not.toEqualHex('0x123', { exact: true })
+	})
+})
+```
+
+## Options
+
+`toBeAddress(opts)` takes viem's `IsAddressOptions`. `strict` defaults to `true`, which enforces the
+EIP-55 checksum — pass `{ strict: false }` when comparing against an address that came back from an RPC
+in lowercase.
+
+`toBeHex(opts)` takes `{ strict?: boolean; size?: number }`. `strict` defaults to `true` and validates
+the hex characters; with `strict: false` only the `0x` prefix is checked. `size` is in **bytes**, not
+characters.
+
+`toEqualHex(expected, opts)` takes `{ exact?: boolean }`, defaulting to `false` — leading zeros are
+trimmed and case is ignored. Set `exact: true` when the exact encoding is what you are testing, e.g.
+when asserting on a raw storage slot value.

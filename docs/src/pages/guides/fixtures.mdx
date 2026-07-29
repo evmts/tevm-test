@@ -1,0 +1,143 @@
+---
+title: Contract fixtures
+description: Precompiled Solidity fixtures and RPC helpers from @tevm/test-utils
+---
+
+# Contract fixtures
+
+`@tevm/test-utils` is the boring, useful package: contracts that are already compiled, already typed,
+and ready to deploy into a Tevm node without a Solidity toolchain anywhere in your project.
+
+Every fixture is a Tevm `Contract` created with `createContract`, so it carries `abi`,
+`humanReadableAbi`, `bytecode`, `deployedBytecode`, and the `read` / `write` / `events` action creators,
+plus `.withAddress()` to bind it to a deployed instance.
+
+## The fixtures
+
+| Export | Solidity | Good for |
+| --- | --- | --- |
+| `SimpleContract` | `get()`, `set(uint256)`, `event ValueSet(uint256)` | The smallest possible event / storage test |
+| `AdvancedContract` | Four typed setters, an "all values" setter, plus internal `call` and `delegatecall` into a `MathHelper` | Argument matching, internal call tracing |
+| `ErrorContract` | One function per revert flavour: string reverts, three custom errors, and five panics | Everything on the [errors](/guides/errors) page |
+| `BlockReader` | `getBlockInfo()` returning `block.number`, `timestamp`, `coinbase`, `basefee` | Asserting block context in forks |
+| `TestERC20` | OpenZeppelin ERC20 (`name`, `symbol`) | [Token balance](/guides/balances) tests |
+| `TestERC721` | OpenZeppelin ERC721 (`name`, `symbol`) | NFT flows |
+| `MUDTestSystem` | A MUD `System` writing to a MUD table | MUD/Lattice integration |
+
+## Deploying a fixture
+
+```ts [fixtures.spec.ts]
+import { createMemoryClient } from '@tevm/memory-client'
+import { AdvancedContract } from '@tevm/test-utils'
+import { PREFUNDED_ACCOUNTS } from '@tevm/utils'
+import type { Address } from 'viem'
+import { assert, beforeAll, describe, expect, it } from 'vitest'
+
+const client = createMemoryClient()
+const owner = PREFUNDED_ACCOUNTS[0]
+
+describe('AdvancedContract fixture', () => {
+	let contract: ReturnType<typeof AdvancedContract.withAddress>
+
+	beforeAll(async () => {
+		const { createdAddress } = await client.tevmDeploy({
+			...AdvancedContract.deploy(42n, true, 'hello', owner.address),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'contract was not deployed')
+		contract = AdvancedContract.withAddress(createdAddress as Address)
+	})
+
+	it('exposes its constructor values', async () => {
+		const { data } = await client.tevmContract(contract.read.getNumber())
+		expect(data).toBe(42n)
+	})
+
+	it('emits on every setter', async () => {
+		await expect(client.tevmContract(contract.write.setNumber(100n)))
+			.toEmit(contract, 'NumberSet')
+			.withEventArgs(100n)
+	})
+})
+```
+
+## `getAlchemyUrl`
+
+Builds an Alchemy RPC URL for a supported chain from the `TEVM_TEST_ALCHEMY_KEY` environment variable:
+
+```ts
+import { getAlchemyUrl } from '@tevm/test-utils'
+import { http } from 'viem'
+
+// Defaults to Optimism.
+const url = getAlchemyUrl()
+
+// Or name the chain: 'mainnet' | 'sepolia' | 'optimism' | 'base' | 'arbitrum' | 'matic' | …
+const mainnetUrl = getAlchemyUrl('mainnet')
+
+// Or pass a key explicitly, bypassing the environment.
+const explicit = getAlchemyUrl('base', process.env.MY_ALCHEMY_KEY)
+
+const transport = http(url)
+```
+
+:::warning
+With no key configured it falls back to a shared public key and logs a warning. That key is heavily
+throttled — set `TEVM_TEST_ALCHEMY_KEY` for anything real.
+:::
+
+## `transports`
+
+A pair of pre-built viem transports for mainnet and Optimism, load-balanced across the comma-separated
+URLs in `TEVM_RPC_URLS_MAINNET` / `TEVM_RPC_URLS_OPTIMISM` and rate-limited to 150 requests per second
+with three retries:
+
+```ts
+import { transports } from '@tevm/test-utils'
+import { createTestSnapshotClient } from '@tevm/test-node'
+
+const client = createTestSnapshotClient({
+	fork: { transport: transports.optimism },
+})
+```
+
+:::warning
+`transports` reads the environment at **module load time**. If neither variable is set it warns and
+produces a load balancer with no endpoints, which fails on first use. Set the variables before
+importing, or use `getAlchemyUrl` + `http()` instead.
+:::
+
+## Combining with snapshots
+
+The two packages compose exactly as you'd hope — fork a real chain, record the responses, and deploy a
+fixture on top of the fork:
+
+```ts [combined.spec.ts]
+import { createTestSnapshotClient } from '@tevm/test-node'
+import { SimpleContract, getAlchemyUrl } from '@tevm/test-utils'
+import { http } from 'viem'
+import type { Address } from 'viem'
+import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest'
+
+const client = createTestSnapshotClient({
+	fork: { transport: http(getAlchemyUrl('optimism'))(), blockTag: 128_000_000n },
+})
+
+describe('fixture on a fork', () => {
+	beforeAll(async () => await client.server.start())
+	afterAll(async () => await client.server.stop())
+
+	it('deploys and emits', async () => {
+		const { createdAddress } = await client.tevmDeploy({
+			...SimpleContract.deploy(0n),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'contract was not deployed')
+		const contract = SimpleContract.withAddress(createdAddress as Address)
+
+		await expect(client.tevmContract(contract.write.set(1n)))
+			.toEmit(contract, 'ValueSet')
+			.withEventArgs(1n)
+	})
+})
+```

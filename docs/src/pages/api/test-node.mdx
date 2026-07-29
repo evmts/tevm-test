@@ -1,0 +1,200 @@
+---
+title: '@tevm/test-node'
+description: API reference for the snapshot-aware Tevm test node, client, and transport
+---
+
+# `@tevm/test-node`
+
+A Tevm node, memory client, and EIP-1193 transport that record forked JSON-RPC responses to disk so
+fork tests are deterministic and run offline.
+
+```ts
+import {
+	createTestSnapshotClient,
+	createTestSnapshotNode,
+	createTestSnapshotTransport,
+} from '@tevm/test-node'
+```
+
+Requires Node ≥ 24.
+
+---
+
+## `createTestSnapshotClient`
+
+```ts
+function createTestSnapshotClient<TCommon, TAccountOrAddress, TRpcSchema>(
+  options: TestSnapshotClientOptions<TCommon, TAccountOrAddress, TRpcSchema>,
+): TestSnapshotClient<TCommon, TAccountOrAddress>
+```
+
+Creates a Tevm `MemoryClient` whose fork transport caches responses. The returned client is a full
+`MemoryClient` — every viem action and every `tevm*` action works — extended with `server` and
+`saveSnapshots`.
+
+**Throws** `Fork transport is required in options.fork.transport` if `options.fork.transport` is missing.
+
+```ts
+import { createTestSnapshotClient } from '@tevm/test-node'
+import { http } from 'viem'
+
+const client = createTestSnapshotClient({
+	fork: { transport: http('https://mainnet.optimism.io')() },
+	test: { resolveSnapshotPath: 'vitest', autosave: 'onRequest' }, // both are the defaults
+})
+
+await client.server.start()
+const block = await client.getBlock({ blockNumber: 123n })
+await client.server.stop()
+// Snapshots written to __rpc_snapshots__/<test file>.snap.json
+```
+
+## `createTestSnapshotNode`
+
+```ts
+function createTestSnapshotNode(options: TestSnapshotNodeOptions): TestSnapshotNode
+```
+
+The same thing as a `TevmNode<'fork'>` rather than a client — use it with Tevm handlers and JSON-RPC
+procedures.
+
+**Throws** `Fork transport is required in options.fork.transport`.
+
+```ts
+import { blockNumberProcedure } from '@tevm/actions'
+import { createTestSnapshotNode } from '@tevm/test-node'
+import { http } from 'viem'
+
+const node = createTestSnapshotNode({
+	fork: { transport: http('https://mainnet.optimism.io')() },
+})
+
+await node.server.start()
+const block = await blockNumberProcedure(node)({
+	jsonrpc: '2.0',
+	method: 'eth_blockNumber',
+	id: 1,
+	params: [],
+})
+await node.server.stop()
+```
+
+## `createTestSnapshotTransport`
+
+```ts
+function createTestSnapshotTransport<TTransportType, TRpcAttributes, TEip1193RequestFn>(
+  options: TestSnapshotTransportOptions<TTransportType, TRpcAttributes, TEip1193RequestFn>,
+): TestSnapshotTransport<TEip1193RequestFn>
+```
+
+Returns a bare `{ request }` EIP-1193 object backed by the same cache, so you can hand it to any library
+that takes a transport. Unlike the other two, its option is `transport`, not `fork.transport`.
+
+**Throws** `Fork transport is required in options.fork.transport` (via the underlying client), and
+`Transport is not a fork transport` if the created client somehow has no fork transport.
+
+```ts
+import { createTestSnapshotTransport } from '@tevm/test-node'
+import { http } from 'viem'
+
+const transport = createTestSnapshotTransport({
+	transport: http('https://mainnet.optimism.io')(),
+})
+
+await transport.server.start()
+const block = await transport.request({
+	method: 'eth_getBlockByNumber',
+	params: ['0x7b', false],
+})
+await transport.server.stop()
+```
+
+---
+
+## Options
+
+### `TestOptions`
+
+```ts
+type TestOptions = {
+	resolveSnapshotPath?: 'vitest' | 'bun' | (() => string)
+	autosave?: 'onStop' | 'onRequest' | 'onSave'
+}
+```
+
+#### `resolveSnapshotPath`
+
+**Default `'vitest'`.** Auto-detects the test runner (Vitest or Bun) and writes to
+`__rpc_snapshots__/<test file name>.snap.json` beside the test file. Pass `'bun'` to force the Bun
+resolver. Pass a function returning an **absolute path including the filename** when you are not in a
+supported test context or want a custom location.
+
+#### `autosave`
+
+**Default `'onRequest'`.**
+
+| Value | When snapshots are written |
+| --- | --- |
+| `'onRequest'` | After each newly cached request |
+| `'onStop'` | Only in `server.stop()` |
+| `'onSave'` | Only when you call `saveSnapshots()` |
+
+### `TestSnapshotClientOptions`
+
+`MemoryClientOptions<TCommon, TAccountOrAddress, TRpcSchema> & { test?: TestOptions }`
+
+### `TestSnapshotNodeOptions`
+
+`TevmNodeOptions & { test?: TestOptions }`
+
+### `TestSnapshotTransportOptions`
+
+```ts
+type TestSnapshotTransportOptions = {
+	transport: Transport | { request: EIP1193RequestFn }
+	test?: TestOptions
+}
+```
+
+---
+
+## The shared surface
+
+All three return values carry:
+
+```ts
+{
+	server: {
+		/** The underlying HTTP server. */
+		http: HttpServer
+		/** RPC URL of the server. Empty string until `start()` resolves. */
+		rpcUrl: string
+		/** Start the Tevm server. */
+		start: () => Promise<void>
+		/** Stop the Tevm server and save snapshots. */
+		stop: () => Promise<void>
+	}
+	/** Flush snapshots to disk without stopping the server. */
+	saveSnapshots: () => Promise<void>
+}
+```
+
+Types: `TestSnapshotClient`, `TestSnapshotNode` (`TevmNode<'fork'>` + the above), `TestSnapshotTransport`
+(`{ request }` + the above).
+
+---
+
+## Caching rules
+
+A request is cached only when its answer is deterministic:
+
+- **Static block tags only** — a block hash, a hex block number, or `earliest`. `latest`, `pending`,
+  `safe`, and `finalized` are never cached.
+- **No side effects** — methods that mutate (e.g. `eth_sendRawTransaction`) are never cached.
+- **`eth_call` / `eth_estimateGas`** — cached only when the request pins `nonce`, `gas`, and either
+  `gasPrice` or both `maxFeePerGas` and `maxPriorityFeePerGas`.
+
+Cache keys are the normalised `[jsonrpc, method, ...params]` tuple, so hex casing and equivalent block
+tag encodings collapse to the same entry.
+
+→ [Snapshot testing guide](/guides/snapshot-testing)

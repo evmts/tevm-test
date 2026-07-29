@@ -18,7 +18,9 @@
 		"release": "pnpm build && changeset publish",
 		"release:version": "changeset version && pnpm install --lockfile-only",
 		"test": "pnpm -r --if-present run test",
-		"typecheck": "pnpm -r --if-present run typecheck"
+		"typecheck": "pnpm -r --if-present run typecheck",
+		"docs:dev": "pnpm --filter @tevm/test-docs dev",
+		"docs:build": "pnpm --filter @tevm/test-docs build"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.15",

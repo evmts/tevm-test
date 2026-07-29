@@ -1,0 +1,165 @@
+---
+title: '@tevm/test-utils'
+description: API reference for the Tevm contract fixtures and RPC helpers
+---
+
+# `@tevm/test-utils`
+
+Precompiled Solidity fixtures and RPC helpers. Requires Node ≥ 24.
+
+```ts
+import {
+	AdvancedContract,
+	BlockReader,
+	ErrorContract,
+	getAlchemyUrl,
+	MUDTestSystem,
+	SimpleContract,
+	TestERC20,
+	TestERC721,
+	transports,
+} from '@tevm/test-utils'
+```
+
+---
+
+## Contract fixtures
+
+Each fixture is a Tevm `Contract` from `createContract`, carrying `abi`, `humanReadableAbi`,
+`bytecode`, `deployedBytecode`, `read`, `write`, `events`, `deploy()`, and `withAddress()`.
+
+### `SimpleContract`
+
+```solidity
+constructor(uint256 initialValue)
+event ValueSet(uint256 newValue)
+function get() view returns (uint256)
+function set(uint256 newValue)
+```
+
+### `AdvancedContract`
+
+```solidity
+constructor(uint256 initialNumber, bool initialBool, string initialString, address initialAddress)
+
+event NumberSet(uint256 newValue)
+event BoolSet(bool newValue)
+event StringSet(string newValue)
+event AddressSet(address newValue)
+event AllValuesSet(uint256 number, bool boolean, string str, address addr)
+event ExternalCallResult(uint256 result)
+event DelegateCallResult(uint256 result)
+
+function getNumber() view returns (uint256)
+function getBool() view returns (bool)
+function getString() view returns (string)
+function getAddress() view returns (address)
+function getAllValues() view returns (uint256, bool, string, address)
+function setNumber(uint256 newValue)
+function setBool(bool newValue)
+function setString(string newValue)
+function setAddress(address newValue)
+function setAllValues(uint256 newNumber, bool newBool, string newString, address newAddress)
+function mathHelperAddress() view returns (address)
+function setMathHelperAddress(address newAddress)
+function callMathHelper(uint256 value) returns (uint256)
+function delegateCallMathHelper(uint256 value) returns (uint256)
+```
+
+The deployment also creates a `MathHelper` (`multiply`, `add`, `setMultiplier`, `event Calculated`),
+which makes `AdvancedContract` the fixture to use when testing internal call tracing.
+
+### `ErrorContract`
+
+```solidity
+error SimpleError()
+error ErrorWithSingleParam(uint256 amount)
+error ErrorWithMultipleParams(string message, bytes32 hash, address[] users)
+
+function revertWithoutMessage()
+function revertWithStringError()          // "This is a string error message"
+function revertWithRequireNoMessage()
+function revertWithRequireAndMessage()    // "Require failed with message"
+function revertWithSimpleCustomError()
+function revertWithCustomErrorSingleParam()    // ErrorWithSingleParam(100)
+function revertWithCustomErrorMultipleParams()
+function panicWithArithmeticOverflow()
+function panicWithArrayOutOfBounds()
+function panicWithAssertFailure()
+function panicWithDivisionByZero()
+function errorOutOfGas()
+function errorWithInvalidOpcode()
+```
+
+### `BlockReader`
+
+```solidity
+function getBlockInfo() view returns (uint256, uint256, address, uint256)
+// block.number, block.timestamp, block.coinbase, block.basefee
+```
+
+### `TestERC20` / `TestERC721`
+
+OpenZeppelin ERC20 and ERC721, each `constructor(string name, string symbol)`, with the standard
+interface plus the standard OZ custom errors (`ERC20InsufficientBalance`, `ERC721NonexistentToken`, …).
+
+Neither exposes a public mint. Use Tevm's `dealHandler` / `client.tevmDeal` to give an account a
+balance:
+
+```ts
+import { dealHandler } from '@tevm/actions'
+import { parseEther } from 'viem'
+
+await dealHandler(node)({
+	erc20: token.address,
+	account: recipient.address,
+	amount: parseEther('1000'),
+})
+```
+
+### `MUDTestSystem`
+
+A MUD `System` (exported from the source as `TestSystem`) that registers a MUD table in its constructor
+and exposes typed `get` / `set`. For MUD/Lattice integration tests.
+
+---
+
+## `getAlchemyUrl`
+
+```ts
+function getAlchemyUrl(
+  chainId?: 'mainnet' | 'goerli' | 'sepolia' | 'arbitrum' | 'arbitrum-goerli' | 'arbitrum-sepolia'
+    | 'base' | 'base-goerli' | 'base-sepolia' | 'matic' | 'matic-amoy' | 'matic-mumbai'
+    | 'optimism' | 'optimism-goerli' | 'optimism-sepolia',
+  alchemyKey?: string,
+): string
+```
+
+Builds an Alchemy RPC URL. `chainId` defaults to `'optimism'`; `alchemyKey` defaults to
+`process.env.TEVM_TEST_ALCHEMY_KEY`.
+
+If no key is configured a shared, heavily throttled public key is used and a warning is logged.
+
+```ts
+import { getAlchemyUrl } from '@tevm/test-utils'
+import { http } from 'viem'
+
+const transport = http(getAlchemyUrl('mainnet'))
+```
+
+## `transports`
+
+```ts
+const transports: { mainnet: Transport; optimism: Transport }
+```
+
+Load-balanced, rate-limited (150 req/s, 3 retries) viem transports built from the comma-separated URLs
+in `TEVM_RPC_URLS_MAINNET` and `TEVM_RPC_URLS_OPTIMISM`.
+
+:::warning
+The environment is read at module load time. If a variable is unset, a warning is logged and the
+transport has no endpoints — it will fail on first request. Prefer `getAlchemyUrl` + `http()` when you
+can't set the variables.
+:::
+
+→ [Fixtures guide](/guides/fixtures)

@@ -1,0 +1,144 @@
+---
+title: Contract calls
+description: Assert that a transaction called a specific contract function, including internal calls
+---
+
+# Contract calls
+
+`toCallContractFunction` asserts that a transaction invoked a particular function on a particular
+contract — including calls made *by* another contract, which is what makes it useful. It works by
+replaying the transaction under the `4byteTracer` and inspecting the calldata recorded for that address.
+
+Chain `.withFunctionArgs(...)` for an exact positional match on the decoded arguments, or
+`.withFunctionNamedArgs({...})` for a partial match by parameter name.
+
+## Complete example
+
+`AdvancedContract` from `@tevm/test-utils` calls out to a helper contract, so it exercises both direct
+and internal calls.
+
+```ts [contractCalls.spec.ts]
+import { contractHandler, deployHandler } from '@tevm/actions'
+import { createTevmNode } from '@tevm/node'
+import { AdvancedContract } from '@tevm/test-utils'
+import { PREFUNDED_ACCOUNTS } from '@tevm/utils'
+import { type Address, toFunctionSelector } from 'viem'
+import { assert, beforeEach, describe, expect, it } from 'vitest'
+
+const sender = PREFUNDED_ACCOUNTS[0]
+
+describe('AdvancedContract calls', () => {
+	let node: ReturnType<typeof createTevmNode>
+	let contract: ReturnType<typeof AdvancedContract.withAddress>
+
+	beforeEach(async () => {
+		node = createTevmNode()
+
+		const { createdAddress } = await deployHandler(node)({
+			...AdvancedContract.deploy(42n, true, 'test', sender.address),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'contract was not deployed')
+		contract = AdvancedContract.withAddress(createdAddress as Address)
+	})
+
+	it('detects a call by contract and function name', async () => {
+		await expect(
+			contractHandler(node)({
+				...contract.write.setNumber(100n),
+				from: sender.address,
+				addToBlockchain: true,
+			}),
+		).toCallContractFunction(node, contract, 'setNumber')
+	})
+
+	it('detects a call by signature', async () => {
+		await expect(
+			contractHandler(node)({
+				...contract.write.setNumber(100n),
+				from: sender.address,
+				addToBlockchain: true,
+			}),
+		).toCallContractFunction(node, { address: contract.address }, 'setNumber(uint256)')
+	})
+
+	it('detects a call by selector', async () => {
+		await expect(
+			contractHandler(node)({
+				...contract.write.setNumber(100n),
+				from: sender.address,
+				addToBlockchain: true,
+			}),
+		).toCallContractFunction(
+			node,
+			{ address: contract.address },
+			toFunctionSelector('function setNumber(uint256)'),
+		)
+	})
+
+	it('matches arguments positionally', async () => {
+		await expect(
+			contractHandler(node)({
+				...contract.write.setNumber(100n),
+				from: sender.address,
+				addToBlockchain: true,
+			}),
+		)
+			.toCallContractFunction(node, contract, 'setNumber')
+			.withFunctionArgs(100n)
+	})
+
+	it('matches a subset of arguments by name', async () => {
+		await expect(
+			contractHandler(node)({
+				...contract.write.setAllValues(1n, false, 'hello', sender.address),
+				from: sender.address,
+				addToBlockchain: true,
+			}),
+		)
+			.toCallContractFunction(node, contract, 'setAllValues')
+			.withFunctionNamedArgs({ newString: 'hello' })
+	})
+})
+```
+
+## Identifying the function
+
+Same three forms as events and errors:
+
+| Form | Type inference |
+| --- | --- |
+| `.toCallContractFunction(client, contract, 'setNumber')` | Full — arguments typed from the ABI |
+| `.toCallContractFunction(client, { address }, 'setNumber(uint256)')` | None |
+| `.toCallContractFunction(client, { address }, '0x3fb5c1cb')` | None |
+
+The second argument only needs an `address`; the ABI is optional and is used purely for decoding
+arguments and for typing the chained matchers.
+
+## Internal calls
+
+Because the assertion reads the 4-byte trace rather than the top-level transaction calldata, a function
+that a contract calls on itself or on another contract is detected too:
+
+```ts
+// AdvancedContract.callMathHelper() calls MathHelper.multiply() internally.
+const { data: mathHelperAddress } = await contractHandler(node)({
+	...contract.read.mathHelperAddress(),
+	createTransaction: false,
+})
+
+await expect(
+	contractHandler(node)({
+		...contract.write.callMathHelper(5n),
+		from: sender.address,
+		addToBlockchain: true,
+	}),
+).toCallContractFunction(node, { address: mathHelperAddress }, 'multiply(uint256)')
+```
+
+This is the main reason to reach for `toCallContractFunction` over simply asserting on the calldata you
+sent: it observes what actually happened inside the EVM.
+
+:::warning
+`.not` cannot precede `withFunctionArgs` / `withFunctionNamedArgs`.
+:::

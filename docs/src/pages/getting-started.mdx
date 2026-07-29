@@ -1,0 +1,120 @@
+---
+title: Getting started
+description: Install the Tevm test packages, wire them into Vitest, and write your first assertion
+---
+
+# Getting started
+
+## Requirements
+
+- **Node 24 or later.** All three packages declare `"engines": { "node": ">=24" }`.
+- **Vitest 4.** The matchers register themselves through `expect.extend` and augment Vitest's
+  `Assertion` interface.
+- **viem 2.** `viem` is a peer dependency of `@tevm/test-matchers`.
+
+## Install
+
+The published package names are `@tevm/test-matchers`, `@tevm/test-node`, and `@tevm/test-utils`.
+They are versioned together with Tevm core and are currently on the `1.0.0-rc` line:
+
+:::code-group
+
+```bash [pnpm]
+pnpm add -D @tevm/test-matchers@^1.0.0-rc.151 @tevm/test-node@^1.0.0-rc.151 @tevm/test-utils@^1.0.0-rc.151
+```
+
+```bash [npm]
+npm install --save-dev @tevm/test-matchers@^1.0.0-rc.151 @tevm/test-node@^1.0.0-rc.151 @tevm/test-utils@^1.0.0-rc.151
+```
+
+```bash [bun]
+bun add -d @tevm/test-matchers@^1.0.0-rc.151 @tevm/test-node@^1.0.0-rc.151 @tevm/test-utils@^1.0.0-rc.151
+```
+
+:::
+
+Install only what you need — the three packages are independent. `@tevm/test-matchers` and
+`@tevm/test-node` need Tevm itself at runtime, declared as a `tevm >= 1.0.0` peer dependency:
+
+```bash
+pnpm add tevm@^1.0.0-rc.151
+```
+
+:::warning
+`1.0.0-rc.151` is a release candidate. Ranges like `^1.0.0-rc.151` will not pick up a future stable
+`1.0.0` automatically under npm's prerelease semantics — pin deliberately and bump when you upgrade Tevm core.
+:::
+
+## Register the matchers
+
+`@tevm/test-matchers` has no named entry point to call: importing it for side effects registers every
+matcher on Vitest's `expect` and declares the types. Create a setup file:
+
+```ts [vitest.setup.ts]
+import '@tevm/test-matchers'
+```
+
+Then point Vitest at it:
+
+```ts [vitest.config.ts]
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+	test: {
+		environment: 'node',
+		setupFiles: ['./vitest.setup.ts'],
+		// EVM tests deploy contracts and mine blocks; the default 5s is often tight.
+		testTimeout: 120_000,
+	},
+})
+```
+
+That's it — every test file now sees `toEmit`, `toBeReverted`, `toChangeBalance`, and the rest, fully typed.
+
+## Your first test
+
+This is a complete, runnable file. It deploys the `SimpleContract` fixture from `@tevm/test-utils` into an
+in-memory Tevm node and asserts on the event it emits.
+
+```ts [simpleContract.spec.ts]
+import { createMemoryClient } from '@tevm/memory-client'
+import { SimpleContract } from '@tevm/test-utils'
+import type { Address } from 'viem'
+import { assert, beforeEach, describe, expect, it } from 'vitest'
+
+const client = createMemoryClient()
+
+describe('SimpleContract', () => {
+	let contract: ReturnType<typeof SimpleContract.withAddress>
+
+	beforeEach(async () => {
+		const { createdAddress } = await client.tevmDeploy({
+			...SimpleContract.deploy(0n),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'contract was not deployed')
+		contract = SimpleContract.withAddress(createdAddress as Address)
+	})
+
+	it('emits ValueSet with the new value', async () => {
+		await expect(client.tevmContract(contract.write.set(100n)))
+			.toEmit(contract, 'ValueSet')
+			.withEventArgs(100n)
+	})
+
+	it('stores the new value', async () => {
+		await client.tevmContract({ ...contract.write.set(42n), addToBlockchain: true })
+		const { data } = await client.tevmContract(contract.read.get())
+		expect(data).toBe(42n)
+	})
+})
+```
+
+Run it with `vitest run`. There is no node to start, no fork, and no network access.
+
+## What to read next
+
+- [Events](/guides/events) — `toEmit`, `withEventArgs`, `withEventNamedArgs`
+- [Reverts and errors](/guides/errors) — `toBeReverted`, `toBeRevertedWithString`, `toBeRevertedWithError`
+- [Balances](/guides/balances) — exact ETH and ERC20 deltas
+- [Forked snapshot tests](/guides/snapshot-testing) — deterministic fork tests with `@tevm/test-node`

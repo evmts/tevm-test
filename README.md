@@ -6,7 +6,8 @@ contract fixtures and test utilities.
 
 These packages build on [TEVM](https://tevm.sh), but release independently so
 test tooling can evolve without locking its version to the core monorepo.
-Package API documentation is available at [test.tevm.sh](https://test.tevm.sh).
+Full documentation — guides and API reference — is at
+[test.tevm.sh](https://test.tevm.sh). Its source is in [`docs/`](./docs).
 
 ## Packages
 
@@ -67,6 +68,15 @@ const node = createTestSnapshotNode({
 await node.server.start()
 // Run assertions against the node.
 await node.server.stop()
+```
+
+## Documentation
+
+The docs site is a [Vocs](https://vocs.dev) 2.x site in [`docs/`](./docs):
+
+```sh
+pnpm docs:dev
+pnpm docs:build
 ```
 
 ## Development

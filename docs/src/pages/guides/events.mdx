@@ -1,0 +1,121 @@
+---
+title: Events
+description: Assert that a transaction emitted an event, and match its arguments positionally or by name
+---
+
+# Events
+
+`toEmit` asserts that a transaction emitted a particular event. It accepts the transaction in whatever
+form you have it — a hash, a receipt, a Tevm call result, or a promise resolving to any of those — and
+it can identify the event by contract + name, by signature, or by selector.
+
+Chain `.withEventArgs(...)` for an exact positional match, or `.withEventNamedArgs({...})` for a
+partial match by parameter name.
+
+## Complete example
+
+```ts [events.spec.ts]
+import { createMemoryClient } from '@tevm/memory-client'
+import { SimpleContract } from '@tevm/test-utils'
+import type { Address } from 'viem'
+import { toEventSelector } from 'viem'
+import { assert, beforeEach, describe, expect, it } from 'vitest'
+
+const client = createMemoryClient()
+
+describe('SimpleContract events', () => {
+	let contract: ReturnType<typeof SimpleContract.withAddress>
+
+	beforeEach(async () => {
+		const { createdAddress } = await client.tevmDeploy({
+			...SimpleContract.deploy(0n),
+			addToBlockchain: true,
+		})
+		assert(createdAddress, 'contract was not deployed')
+		contract = SimpleContract.withAddress(createdAddress as Address)
+	})
+
+	it('identifies the event by contract and name', async () => {
+		await expect(client.tevmContract(contract.write.set(100n))).toEmit(contract, 'ValueSet')
+	})
+
+	it('identifies the event by signature', async () => {
+		await expect(client.tevmContract(contract.write.set(100n))).toEmit('ValueSet(uint256)')
+	})
+
+	it('identifies the event by selector', async () => {
+		await expect(client.tevmContract(contract.write.set(100n))).toEmit(
+			toEventSelector('ValueSet(uint256)'),
+		)
+	})
+
+	it('matches arguments positionally', async () => {
+		await expect(client.tevmContract(contract.write.set(100n)))
+			.toEmit(contract, 'ValueSet')
+			.withEventArgs(100n)
+	})
+
+	it('matches a subset of arguments by name', async () => {
+		await expect(client.tevmContract(contract.write.set(100n)))
+			.toEmit(contract, 'ValueSet')
+			.withEventNamedArgs({ newValue: 100n })
+	})
+
+	it('fails when the event is not emitted', async () => {
+		await expect(client.tevmContract(contract.read.get())).not.toEmit(contract, 'ValueSet')
+	})
+})
+```
+
+## Identifying the event
+
+| Form | Example | Type inference |
+| --- | --- | --- |
+| Contract + name | `.toEmit(contract, 'ValueSet')` | Full — `withEventArgs` is typed from the ABI |
+| Signature | `.toEmit('ValueSet(uint256)')` | None — arguments are `unknown[]` |
+| Selector | `.toEmit(toEventSelector('ValueSet(uint256)'))` | None |
+
+When you pass the contract object, `withEventArgs` and `withEventNamedArgs` are inferred from
+`ExtractAbiEvent<TAbi, TEventName>`, so a wrong arity or a `number` where the ABI says `uint256`
+is a type error before the test ever runs.
+
+Named parameters in a signature are allowed and ignored for matching purposes —
+`'ValueSet(uint256 newValue)'` and `'ValueSet(uint256)'` resolve to the same selector.
+
+## Positional vs. named arguments
+
+`withEventArgs` requires **all** arguments, in ABI order, matched exactly:
+
+```ts
+// event Transfer(address indexed from, address indexed to, uint256 value)
+await expect(txHash)
+	.toEmit(token, 'Transfer')
+	.withEventArgs(
+		'0x742d35Cc6274c36e1019e41D77d0A4aa7D7dE01e', // from
+		'0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed', // to
+		1000n, // value
+	)
+```
+
+`withEventNamedArgs` matches only the keys you list, so you can ignore arguments you don't care about:
+
+```ts
+await expect(txHash)
+	.toEmit(token, 'Transfer')
+	.withEventNamedArgs({ value: 1000n })
+
+// An empty object matches any event of this type.
+await expect(txHash).toEmit(token, 'Transfer').withEventNamedArgs({})
+```
+
+:::warning
+`.not` cannot be placed before `withEventArgs` or `withEventNamedArgs`. `expect(tx).not.toEmit(c, 'E')`
+is valid; `expect(tx).not.toEmit(c, 'E').withEventArgs(1n)` is not. To assert "emitted, but not with
+these arguments", assert the event was emitted and then assert on the decoded logs directly.
+:::
+
+## Awaiting the assertion
+
+The chainable matchers are thenable: `await expect(tx).toEmit(c, 'E')` resolves once the transaction
+has been handled, and `await expect(tx).toEmit(c, 'E').withEventArgs(1n)` resolves once both links have
+run. Always `await` — an un-awaited chain will not fail your test.

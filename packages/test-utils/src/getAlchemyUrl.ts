@@ -22,7 +22,26 @@ const ALCHEMY_HOSTS = Object.freeze({
 })
 
 /**
- * Returns an alchemy url based on env variables for the given chain
+ * Returns an Alchemy JSON-RPC URL for the given chain.
+ *
+ * The key is read from the `TEVM_TEST_ALCHEMY_KEY` environment variable unless one is passed
+ * explicitly. If neither is set, a shared public key is used and a warning is logged — that key is
+ * heavily throttled and should not be relied on.
+ *
+ * @param chainId - Chain to build a URL for. Defaults to `'optimism'`.
+ * @param alchemyKey - Alchemy API key. Defaults to `process.env.TEVM_TEST_ALCHEMY_KEY`.
+ * @returns The full Alchemy RPC URL.
+ *
+ * @example
+ * ```typescript
+ * import { getAlchemyUrl } from '@tevm/test-utils'
+ * import { createTestSnapshotClient } from '@tevm/test-node'
+ * import { http } from 'viem'
+ *
+ * const client = createTestSnapshotClient({
+ *   fork: { transport: http(getAlchemyUrl('mainnet'))(), blockTag: 21_000_000n },
+ * })
+ * ```
  */
 export const getAlchemyUrl = (
 	chainId: keyof typeof ALCHEMY_HOSTS = 'optimism',
