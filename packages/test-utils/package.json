@@ -1,6 +1,6 @@
 {
 	"name": "@tevm/test-utils",
-	"version": "1.0.0-rc.151",
+	"version": "1.0.0",
 	"description": "Reusable TEVM contract fixtures, transports, and test utilities.",
 	"keywords": [
 		"tevm",

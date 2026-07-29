@@ -1,5 +1,13 @@
 # @tevm/test-matchers
 
+## 1.0.0
+
+### Patch Changes
+
+- [`8f91c27`](https://github.com/evmts/tevm-test/commit/8f91c278725c2407185fb7c4d39465663572c72b) Thanks [@roninjin10](https://github.com/roninjin10)! - Correct and expand JSDoc: `toBeInitializedAccount` documents that it asserts the account exists in state (not that it has code), `toHaveState` documents `deployedBytecode` rather than a nonexistent `code` field and its strict-equality comparison, and `getAlchemyUrl` and `transports` gain full docs with examples.
+
+- [`b5bd8e4`](https://github.com/evmts/tevm-test/commit/b5bd8e477b5668616a7e3c0f2bc984302f639781) Thanks [@roninjin10](https://github.com/roninjin10)! - Publish the TEVM test libraries from their standalone repository.
+
 ## 1.0.0-rc.151
 
 ### Patch Changes
