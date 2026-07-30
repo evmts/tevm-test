@@ -41,3 +41,5 @@ jobs:
 
       - name: Test
         run: pnpm test
+        env:
+          TEVM_RPC_URLS_OPTIMISM: ${{ secrets.TEVM_RPC_URLS_OPTIMISM }}
