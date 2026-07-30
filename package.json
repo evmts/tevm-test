@@ -15,7 +15,7 @@
 		"format": "biome format . --write",
 		"format:check": "biome format .",
 		"lint": "biome check .",
-		"release": "pnpm build && changeset publish",
+		"release": "changeset publish",
 		"release:version": "changeset version && pnpm install --lockfile-only",
 		"test": "pnpm -r --if-present run test",
 		"typecheck": "pnpm -r --if-present run typecheck",

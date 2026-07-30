@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { beforeAll, vi } from 'vitest'
 import { createTestSnapshotClient } from '../createTestSnapshotClient.js'
 import type { TestSnapshotClient } from '../types.js'
 import { BLOCK_NUMBER, chain } from './constants.js'
@@ -44,4 +44,9 @@ export const client: TestSnapshotClient = createTestSnapshotClient({
 		blockTag: BigInt(BLOCK_NUMBER) + 1n,
 	},
 	common: chain,
+})
+
+beforeAll(async () => {
+	// Surface fork initialization failures instead of letting them race test shutdown.
+	await client.tevmReady()
 })
