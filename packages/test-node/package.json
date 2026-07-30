@@ -79,7 +79,7 @@
 		"tevm": "^1.0.0-rc.151"
 	},
 	"peerDependencies": {
-		"tevm": ">=1.0.0",
+		"tevm": "^1.0.0-rc.151",
 		"viem": "^2.49.3"
 	},
 	"publishConfig": {
