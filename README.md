@@ -88,8 +88,13 @@ pnpm install
 pnpm lint
 pnpm typecheck
 pnpm build
-pnpm test
+pnpm test       # unit, property (fast-check), and integration suites
+pnpm test:e2e   # imports the built dist packages like a consumer; run after build
+pnpm bench      # vitest bench for matcher hot paths and transaction matchers
 ```
+
+`@tevm/test-matchers` and `@tevm/test-node` are ESM-only in practice: they import
+Vitest, which has no loadable CommonJS entry.
 
 Releases are managed with Changesets and published from GitHub Actions with npm
 provenance.

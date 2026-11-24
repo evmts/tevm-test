@@ -14,6 +14,7 @@ import {
 	ErrorContract,
 	getAlchemyUrl,
 	MUDTestSystem,
+	normalizeRpcUrl,
 	SimpleContract,
 	TestERC20,
 	TestERC721,
@@ -147,6 +148,22 @@ import { http } from 'viem'
 const transport = http(getAlchemyUrl('mainnet'))
 ```
 
+## `normalizeRpcUrl`
+
+```ts
+function normalizeRpcUrl(url: string): string
+```
+
+Rewrites a URL on Alchemy's retired `*.alchemyapi.io` host to the `*.g.alchemy.com` host that serves
+today. Every other URL is returned unchanged. `transports` applies it to each `TEVM_RPC_URLS_*` entry.
+
+```ts
+import { normalizeRpcUrl } from '@tevm/test-utils'
+
+normalizeRpcUrl('https://eth-mainnet.alchemyapi.io/v2/key')
+// 'https://eth-mainnet.g.alchemy.com/v2/key'
+```
+
 ## `transports`
 
 ```ts
@@ -154,7 +171,8 @@ const transports: { mainnet: Transport; optimism: Transport }
 ```
 
 Load-balanced, rate-limited (150 req/s, 3 retries) viem transports built from the comma-separated URLs
-in `TEVM_RPC_URLS_MAINNET` and `TEVM_RPC_URLS_OPTIMISM`.
+in `TEVM_RPC_URLS_MAINNET` and `TEVM_RPC_URLS_OPTIMISM`. Entries are trimmed, empty entries are
+dropped, and retired `*.alchemyapi.io` hosts are rewritten with `normalizeRpcUrl`.
 
 :::warning
 The environment is read at module load time. If a variable is unset, a warning is logged and the

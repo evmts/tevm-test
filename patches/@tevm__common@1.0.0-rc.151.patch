@@ -1,0 +1,39 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index c83f87e61fb482fb9940cee39a1a1c1755a9c1b5..3c818ccf28e4495b21e669f54040daf5ffc68a09 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -70,7 +70,7 @@ var createCommon = ({
+       ethjsCommon,
+       copy: () => {
+         const ethjsCommonCopy = ethjsCommon.copy();
+-        const newCommon = createCommon({ loggingLevel, hardfork, eips, ...chain });
++        const newCommon = createCommon({ loggingLevel, hardfork, eips, customCrypto, ...chain });
+         newCommon.ethjsCommon = ethjsCommonCopy;
+         return newCommon;
+       }
+diff --git a/dist/index.js b/dist/index.js
+index 34e13d46ff9301dbe3cd0354717cf716d0adf390..c0e3bef5b9e2da7d3bb63917a9098f573c6defc9 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -69,7 +69,7 @@ var createCommon = ({
+       ethjsCommon,
+       copy: () => {
+         const ethjsCommonCopy = ethjsCommon.copy();
+-        const newCommon = createCommon({ loggingLevel, hardfork, eips, ...chain });
++        const newCommon = createCommon({ loggingLevel, hardfork, eips, customCrypto, ...chain });
+         newCommon.ethjsCommon = ethjsCommonCopy;
+         return newCommon;
+       }
+diff --git a/src/createCommon.js b/src/createCommon.js
+index a8e81a558aa3a947b529e48d2ab7d65104715d1e..da6fa701e9c420a0f43d9252364cd7df92c6ef02 100644
+--- a/src/createCommon.js
++++ b/src/createCommon.js
+@@ -113,7 +113,7 @@ export const createCommon = ({
+ 			ethjsCommon,
+ 			copy: () => {
+ 				const ethjsCommonCopy = ethjsCommon.copy()
+-				const newCommon = createCommon({ loggingLevel, hardfork, eips, ...chain })
++				const newCommon = createCommon({ loggingLevel, hardfork, eips, customCrypto, ...chain })
+ 				newCommon.ethjsCommon = ethjsCommonCopy
+ 				return newCommon
+ 			},

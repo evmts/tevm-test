@@ -5,6 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"test": "vitest run",
+		"test:e2e": "tsc --noEmit -p tsconfig.e2e.json && vitest run --config vitest.e2e.config.ts",
+		"bench": "vitest bench --run",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
@@ -14,6 +16,8 @@
 		"@tevm/memory-client": "^1.0.0-rc.151",
 		"@tevm/node": "^1.0.0-rc.151",
 		"@tevm/test-matchers": "workspace:^",
+		"@tevm/test-node": "workspace:^",
+		"@tevm/test-utils": "workspace:^",
 		"@tevm/utils": "^1.0.0-rc.151",
 		"ox": "^0.14.22",
 		"tevm": "^1.0.0-rc.151",

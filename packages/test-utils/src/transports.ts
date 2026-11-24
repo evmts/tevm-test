@@ -1,9 +1,16 @@
 import { loadBalance, rateLimit } from '@ponder/utils'
 import { http } from 'viem'
 import { mainnet as viemMainnet, optimism as viemOptimism } from 'viem/chains'
+import { normalizeRpcUrl } from './getAlchemyUrl.js'
 
-const mainnetRpcUrls = process.env['TEVM_RPC_URLS_MAINNET']?.split(',') ?? []
-const optimismRpcUrls = process.env['TEVM_RPC_URLS_OPTIMISM']?.split(',') ?? []
+const readRpcUrls = (name: string): string[] =>
+	(process.env[name]?.split(',') ?? [])
+		.map((url) => url.trim())
+		.filter(Boolean)
+		.map(normalizeRpcUrl)
+
+const mainnetRpcUrls = readRpcUrls('TEVM_RPC_URLS_MAINNET')
+const optimismRpcUrls = readRpcUrls('TEVM_RPC_URLS_OPTIMISM')
 
 if (mainnetRpcUrls.length === 0) {
 	console.warn('TEVM_RPC_URLS_MAINNET is not set')
@@ -23,7 +30,8 @@ const optimism = loadBalance(
 /**
  * Pre-built viem transports for mainnet and Optimism, load balanced across the comma-separated
  * endpoints in `TEVM_RPC_URLS_MAINNET` and `TEVM_RPC_URLS_OPTIMISM`, rate limited to 150 requests
- * per second with 3 retries.
+ * per second with 3 retries. Entries are trimmed, empty entries are dropped, and retired
+ * `*.alchemyapi.io` hosts are rewritten with {@link normalizeRpcUrl}.
  *
  * The environment is read at module load time. If a variable is unset, a warning is logged and the
  * corresponding transport is a load balancer with no endpoints, which fails on first request — use

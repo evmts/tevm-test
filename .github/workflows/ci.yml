@@ -43,3 +43,9 @@ jobs:
         run: pnpm test
         env:
           TEVM_RPC_URLS_OPTIMISM: ${{ secrets.TEVM_RPC_URLS_OPTIMISM }}
+
+      - name: E2E (built packages)
+        run: pnpm test:e2e
+
+      - name: Bench
+        run: pnpm bench

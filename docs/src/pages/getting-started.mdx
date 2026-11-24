@@ -11,6 +11,9 @@ description: Install the Tevm test packages, wire them into Vitest, and write yo
 - **Vitest 4.** The matchers register themselves through `expect.extend` and augment Vitest's
   `Assertion` interface.
 - **viem 2.** `viem` is a peer dependency of `@tevm/test-matchers`.
+- **ESM test files.** `@tevm/test-matchers` and `@tevm/test-node` import Vitest, and Vitest has no
+  loadable CommonJS entry, so `require()` of either package throws. Load them with `import`.
+  `@tevm/test-utils` works with both `import` and `require()`.
 
 ## Install
 

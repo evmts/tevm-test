@@ -1,0 +1,4 @@
+{
+	"extends": "./tsconfig.json",
+	"include": ["e2e", "vitest.e2e.config.ts"]
+}

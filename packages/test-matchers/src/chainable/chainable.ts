@@ -176,7 +176,7 @@ const executeMatcherLogic = async <TName extends string, TArgs extends readonly 
 	actualObj: TReceived,
 	isNegated: boolean,
 	chaiUtils: ChaiUtils,
-): Promise<TReceived> => {
+): Promise<void> => {
 	// Update object with the actual value for further chaining
 	chaiUtils.flag(context, 'object', actualObj)
 
@@ -196,8 +196,6 @@ const executeMatcherLogic = async <TName extends string, TArgs extends readonly 
 
 	// Store the results for future chained matchers
 	storeChainState(context, chaiUtils, name, actualObj, args, result)
-
-	return actualObj
 }
 
 // Updated async chainable function without duplication
@@ -215,6 +213,8 @@ function makeVitestAsyncChainable<
 ): ChainableAssertion {
 	assert(chaiUtils !== undefined, 'ChaiUtils not initialized')
 
+	// A pre-existing callPromise means an earlier matcher in this chain owns it.
+	const isChained = chaiUtils.flag(this, 'callPromise') !== undefined
 	setupPromise(this, chaiUtils)
 	const isNegated = chaiUtils.flag(this, 'negate') === true
 
@@ -229,7 +229,7 @@ function makeVitestAsyncChainable<
 		async (resolvedValue: any) => {
 			assert(chaiUtils !== undefined, 'ChaiUtils not initialized')
 			const actualObj = resolvedValue !== undefined ? resolvedValue : await obj
-			return await executeMatcherLogic(
+			await executeMatcherLogic(
 				this,
 				name,
 				vitestMatcher as VitestMatcherFunction<TReceived, true, TState>,
@@ -238,37 +238,37 @@ function makeVitestAsyncChainable<
 				isNegated,
 				chaiUtils,
 			)
+			return actualObj
 		},
 		// Error handler - for rejected promises (like contract reverts)
 		async (error: any) => {
 			assert(chaiUtils !== undefined, 'ChaiUtils not initialized')
 
-			// Wrap the error in a rejected promise so the matcher can catch and process it
+			// In a chain, a rejection means the earlier matcher failed (or rethrew the
+			// transaction error). Surface it rather than running this matcher without state.
+			if (isChained) throw error
+
+			// Hand the matcher a rejected promise so revert matchers can inspect the error.
+			// Mark it handled: matchers that never await it must not trigger an unhandled rejection.
 			const errorPromise = Promise.reject(error)
+			errorPromise.catch(() => {})
 
-			try {
-				// Execute the matcher with the rejected promise
-				// The matcher will catch the error, process it, and return the same rejected promise
-				await executeMatcherLogic(
-					this,
-					name,
-					vitestMatcher as VitestMatcherFunction<TReceived, true, TState>,
-					args,
-					errorPromise as TReceived,
-					isNegated,
-					chaiUtils,
-				)
+			// A matcher that does not expect a rejection (e.g. toEmit) rethrows the original
+			// error when it awaits the received value. Let that propagate so the test fails
+			// with the transaction error instead of passing or failing on a later chained call.
+			await executeMatcherLogic(
+				this,
+				name,
+				vitestMatcher as VitestMatcherFunction<TReceived, true, TState>,
+				args,
+				errorPromise as TReceived,
+				isNegated,
+				chaiUtils,
+			)
 
-				// If matcher succeeds, convert the error from "rejected" to "resolved" for chaining
-				// Next matcher will receive this through success handler but can access previous state
-				return error
-			} catch (executeError) {
-				// The returned rejected promise throws when awaited - this is expected
-				// Convert from rejected to resolved so the chain can continue
-				if (executeError === error) return error
-				// If it's a different error, the matcher actually failed - re-throw it
-				throw executeError
-			}
+			// The matcher handled the rejection; resolve with the error so chained matchers
+			// (e.g. withErrorArgs) receive it through the success handler.
+			return error
 		},
 	)
 

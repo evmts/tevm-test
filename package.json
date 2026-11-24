@@ -18,6 +18,8 @@
 		"release": "changeset publish",
 		"release:version": "changeset version && pnpm install --lockfile-only",
 		"test": "pnpm -r --if-present run test",
+		"test:e2e": "pnpm --filter @tevm/test-matchers-integration test:e2e",
+		"bench": "pnpm -r --if-present run bench",
 		"typecheck": "pnpm -r --if-present run typecheck",
 		"docs:dev": "pnpm --filter @tevm/test-docs dev",
 		"docs:build": "pnpm --filter @tevm/test-docs build"
@@ -33,5 +35,10 @@
 		"typescript": "^6.0.3",
 		"viem": "^2.49.3",
 		"vitest": "^4.1.6"
+	},
+	"pnpm": {
+		"patchedDependencies": {
+			"@tevm/common@1.0.0-rc.151": "patches/@tevm__common@1.0.0-rc.151.patch"
+		}
 	}
 }

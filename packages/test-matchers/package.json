@@ -25,7 +25,7 @@
 		"Will Cory <willcory10@gmail.com>",
 		"0xpolarzero <0xpolarzero@gmail.com>"
 	],
-	"sideEffects": false,
+	"sideEffects": true,
 	"type": "module",
 	"exports": {
 		"./package.json": "./package.json",
@@ -61,6 +61,7 @@
 		"format:check": "biome format .",
 		"lint": "biome check .",
 		"test": "vitest run",
+		"bench": "vitest bench --run",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
@@ -78,6 +79,7 @@
 		"@tevm/common": "^1.0.0-rc.151",
 		"@tevm/tsconfig": "^1.0.0-rc.151",
 		"@tevm/tsupconfig": "^1.0.0-rc.151",
+		"fast-check": "^3.23.2",
 		"tevm": "^1.0.0-rc.151"
 	},
 	"peerDependencies": {
