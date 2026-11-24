@@ -1,5 +1,11 @@
 # @tevm/test-node
 
+## 1.0.0
+
+### Patch Changes
+
+- [`b5bd8e4`](https://github.com/evmts/tevm-test/commit/b5bd8e477b5668616a7e3c0f2bc984302f639781) Thanks [@roninjin10](https://github.com/roninjin10)! - Publish the TEVM test libraries from their standalone repository.
+
 ## 1.0.0-rc.151
 
 ### Patch Changes
@@ -24,11 +30,13 @@
   ### Changes
 
   #### Snapshot Path Structure
+
   - Moved snapshots from `.tevm/test-snapshots/<test-file>/snapshots.json` to `__rpc_snapshots__/<test-file>.snap.json`
   - Follows vitest snapshot naming conventions for better DX and consistency
   - Added biome ignore rule for `__rpc_snapshots__` directory
 
   #### Implementation
+
   - Removed `getCurrentTestFile` utility
   - Added dedicated snapshot path resolvers:
     - `resolveBunTestSnapshotPath` - resolves snapshot paths for bun test
@@ -37,10 +45,12 @@
   - Enhanced `TestOptions` type with granular snapshot configuration
 
   #### API Updates
+
   - `createTestSnapshotClient`, `createTestSnapshotNode`, and `createTestSnapshotTransport` now accept enhanced snapshot options
   - Updated all RPC tests to use new snapshot structure
 
   #### Documentation
+
   - Updated README with new snapshot configuration options
   - Regenerated TypeDoc documentation for all affected types and functions
 

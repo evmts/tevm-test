@@ -1,6 +1,6 @@
 {
 	"name": "@tevm/test-matchers",
-	"version": "1.0.0-rc.151",
+	"version": "1.0.0",
 	"description": "Vitest matchers for TEVM and EVM testing in TypeScript.",
 	"keywords": [
 		"tevm",
