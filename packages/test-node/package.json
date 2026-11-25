@@ -1,6 +1,6 @@
 {
 	"name": "@tevm/test-node",
-	"version": "1.0.0-rc.151",
+	"version": "1.0.0",
 	"description": "Snapshot-aware TEVM test node and JSON-RPC transport.",
 	"keywords": [
 		"tevm",
